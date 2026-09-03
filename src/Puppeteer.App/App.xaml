@@ -1,0 +1,23 @@
+<Application x:Class="Puppeteer.App.App" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:conv="clr-namespace:Puppeteer.App.Converters">
+ <Application.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Themes/Colors.xaml"/><ResourceDictionary Source="Themes/Icons.xaml"/><ResourceDictionary Source="Themes/Typography.xaml"/><ResourceDictionary Source="Themes/Cards.xaml"/><ResourceDictionary Source="Themes/Controls.xaml"/><ResourceDictionary Source="Themes/Buttons.xaml"/><ResourceDictionary Source="Themes/ScrollBars.xaml"/></ResourceDictionary.MergedDictionaries>
+  <conv:StringEqualsConverter x:Key="PageVis"/>
+  <conv:StringEqualsBoolConverter x:Key="PageActive"/>
+  <conv:NullVisibilityConverter x:Key="NullVis"/>
+  <conv:BoolVisibilityConverter x:Key="BoolVis"/>
+  <conv:EmptyStringVisibilityConverter x:Key="EmptyVis"/>
+  <conv:CountVisibilityConverter x:Key="CountVis"/>
+  <conv:ProjectStatusBrushConverter x:Key="StatusBrush"/>
+  <conv:ProjectStatusVisibilityConverter x:Key="StatusVis"/>
+  <conv:TechIconBrushConverter x:Key="TechBrush"/>
+  <conv:TechIconTintConverter x:Key="TechTint"/>
+  <conv:TechMonogramConverter x:Key="TechMono"/>
+  <conv:ProjectIconSourceConverter x:Key="ProjectIcon"/>
+  <conv:ProjectIconFallbackVisibilityConverter x:Key="IconFallbackVis"/>
+  <conv:ViewStrokeConverter x:Key="ViewStroke"/>
+  <conv:ViewModeWidthConverter x:Key="ViewWidth"/>
+  <conv:ViewModeHeightConverter x:Key="ViewHeight"/>
+  <conv:TakeConverter x:Key="Take"/>
+  <conv:MoreCountConverter x:Key="MoreCount"/>
+  <conv:ToastMarginConverter x:Key="ToastMargin"/>
+ </ResourceDictionary></Application.Resources>
+</Application>
