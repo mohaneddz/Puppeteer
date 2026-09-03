@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Puppeteer.Core\Puppeteer.Core.csproj" />
+    <ProjectReference Include="..\Puppeteer.Infrastructure\Puppeteer.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="SharpVectors.Reloaded" Version="1.8.4.2" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup><Resource Include="Assets\icon.png" /><Resource Include="Assets\logo.png" /></ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\icons\*.svg" Link="Assets\icons\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
