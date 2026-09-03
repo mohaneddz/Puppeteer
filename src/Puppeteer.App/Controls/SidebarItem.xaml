@@ -1,0 +1,64 @@
+<UserControl x:Class="Puppeteer.App.Controls.SidebarItem"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Root" Cursor="Hand" Margin="0,2">
+  <Border x:Name="B" BorderThickness="1" CornerRadius="9" Padding="11,9" MouseLeftButtonUp="OnClick">
+    <Border.Style>
+      <Style TargetType="Border">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="BorderBrush" Value="Transparent"/>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+          </Trigger>
+          <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
+            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </Border.Style>
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Path Grid.Column="0" Data="{Binding Icon, ElementName=Root}" Width="18" Height="18" VerticalAlignment="Center"
+            StrokeThickness="1.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent" Stretch="Uniform">
+        <Path.Style>
+          <Style TargetType="Path">
+            <Setter Property="Stroke" Value="{StaticResource MutedTextBrush}"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
+                <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Path.Style>
+      </Path>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+        <TextBlock Text="{Binding Label, ElementName=Root}" VerticalAlignment="Center" FontSize="13.5">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock">
+              <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+              <Setter Property="FontWeight" Value="Medium"/>
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
+                  <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                  <Setter Property="FontWeight" Value="SemiBold"/>
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+        <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center" Margin="8,1,0,0"
+                 Visibility="{Binding ShowDot, ElementName=Root, Converter={StaticResource BoolVis}}"/>
+      </StackPanel>
+      <Border Grid.Column="2" Background="{StaticResource ElevatedBrush}" CornerRadius="6" Padding="7,2" VerticalAlignment="Center"
+              Visibility="{Binding Badge, ElementName=Root, Converter={StaticResource EmptyVis}}">
+        <TextBlock Text="{Binding Badge, ElementName=Root}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource MutedTextBrush}"/>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>
