@@ -91,6 +91,15 @@
             </StackPanel>
           </Button>
         </Grid>
+        <Button Command="{Binding TogglePinCommand}" CommandParameter="{Binding SelectedProject}" Margin="0,9,0,0" Padding="10,10">
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+            <Path Data="{StaticResource IconStar}" Width="15" Height="15" Stretch="Uniform" Fill="{StaticResource AccentBrush}"
+                  Visibility="{Binding SelectedProject.Id, Converter={StaticResource Pinned}}"/>
+            <Path Data="{StaticResource IconStar}" Width="15" Height="15" Stretch="Uniform" Stroke="{StaticResource MutedTextBrush}" StrokeThickness="1.4" Fill="Transparent"
+                  Visibility="{Binding SelectedProject.Id, Converter={StaticResource Pinned}, ConverterParameter=Inverse}"/>
+            <TextBlock Text="Pin to top" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
 
         <!-- Commands -->
         <StackPanel Visibility="{Binding SelectedProject.Presets.Count, Converter={StaticResource CountVis}}">

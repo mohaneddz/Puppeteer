@@ -157,6 +157,16 @@ public partial class MainWindow : Window
             else Vm.TerminalOpen = !Vm.TerminalOpen;
             e.Handled = true;
         }
+        else if (ctrl && e.Key == Key.N)
+        {
+            if (Vm.NewSessionCommand.CanExecute(null)) Vm.NewSessionCommand.Execute(null);
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.R)
+        {
+            if (Vm.RescanCommand.CanExecute(null)) Vm.RescanCommand.Execute(null);
+            e.Handled = true;
+        }
         else if (e.Key == Key.Escape)
         {
             if (!string.IsNullOrEmpty(Vm.Search)) { Vm.Search = ""; e.Handled = true; }

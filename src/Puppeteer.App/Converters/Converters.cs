@@ -155,8 +155,12 @@ public static class PinStore
 
 public sealed class PinnedVisibilityConverter : IValueConverter
 {
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
-        value is Guid id && PinStore.Ids.Contains(id) ? Visibility.Visible : Visibility.Collapsed;
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var pinned = value is Guid id && PinStore.Ids.Contains(id);
+        if (string.Equals(parameter?.ToString(), "Inverse")) pinned = !pinned;
+        return pinned ? Visibility.Visible : Visibility.Collapsed;
+    }
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
