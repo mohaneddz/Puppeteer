@@ -21,8 +21,30 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         viewModel.PropertyChanged += Vm_PropertyChanged;
         ApplyTerminalLayout();
+        Loaded += async (_, _) => await RestoreLayoutAsync();
+        Closing += (_, _) => SaveLayout();
         if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 } capturePath)
             Loaded += (_, _) => CaptureAndExit(capturePath);
+    }
+
+    private async Task RestoreLayoutAsync()
+    {
+        if (double.TryParse(await Vm.GetPrefAsync("WindowWidth"), out var w) && w > 400) Width = w;
+        if (double.TryParse(await Vm.GetPrefAsync("WindowHeight"), out var h) && h > 300) Height = h;
+        if (double.TryParse(await Vm.GetPrefAsync("SidebarWidth"), out var sw) && sw > 0) { _sidebarWidth = sw; SidebarColumn.Width = new GridLength(sw); }
+        if (double.TryParse(await Vm.GetPrefAsync("DetailsWidth"), out var dw) && dw > 0) { _detailsWidth = dw; DetailsColumn.Width = new GridLength(dw); }
+        if (double.TryParse(await Vm.GetPrefAsync("TerminalHeight"), out var th) && th > 80) _terminalHeight = th;
+        if (await Vm.GetPrefAsync("Maximized") == "1") WindowState = WindowState.Maximized;
+    }
+
+    private void SaveLayout()
+    {
+        var restore = RestoreBounds;
+        Vm.SavePref("Maximized", WindowState == WindowState.Maximized ? "1" : "0");
+        if (!restore.IsEmpty) { Vm.SavePref("WindowWidth", restore.Width.ToString("F0")); Vm.SavePref("WindowHeight", restore.Height.ToString("F0")); }
+        if (SidebarColumn.ActualWidth > 0) Vm.SavePref("SidebarWidth", SidebarColumn.ActualWidth.ToString("F0"));
+        if (DetailsColumn.ActualWidth > 0) Vm.SavePref("DetailsWidth", DetailsColumn.ActualWidth.ToString("F0"));
+        if (TerminalRow.ActualHeight > 80) Vm.SavePref("TerminalHeight", TerminalRow.ActualHeight.ToString("F0"));
     }
 
     private void CaptureAndExit(string path)
