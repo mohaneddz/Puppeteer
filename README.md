@@ -1,58 +1,57 @@
 # Puppeteer
 
-Puppeteer is a focused Windows project hub: discover projects beneath chosen roots, organize them by folder hierarchy and technology, open persistent terminals in the correct working directory, hide them, and return later.
+Puppeteer is a focused Windows project hub. Point it at the folders where you keep your code, and it discovers every project underneath, groups them by what they are and what they're for, and lets you open persistent terminals in the right working directory without hunting through Explorer.
 
 ![Puppeteer brand identity](design/identity.png)
 
-## What is implemented
+Built with **.NET 10** and **WPF**.
 
-- A runnable .NET 10 WPF shell modeled on the supplied charcoal, ivory, and amber references.
-- Projects, Running, and Settings navigation with no unrelated dashboard pages.
-- Recursive root scanning with generated/heavy directory pruning.
-- Extensible detection for Tauri, .NET/WPF, Flutter, Next.js, Vite/React, Node.js, Qt, Android/Kotlin, Rust, Python, and Godot.
-- Multiple detected technologies, a separate primary framework, and suggested commands that are never auto-run.
-- Dynamic hierarchy filters and multi-term metadata search.
-- Project inspector with folder/IDE/terminal actions, lightweight Git status, and change/find/reset icon workflows.
-- Ranked icon discovery across common asset folders without modifying project files.
-- SQLite persistence for roots, projects, technologies, tags, icons, presets, and app settings.
-- Process-backed terminal sessions behind interfaces designed for a future ConPTY implementation.
-- Isolated demo projects when no real root exists.
+## Features
 
-## Architecture
+**Discovery**
+- Recursive root scanning that prunes generated/heavy directories (`node_modules`, `bin`, `obj`, `.git`, …).
+- Stack detection for Tauri, .NET/WPF, Flutter, Next.js, Vite/React, Node.js, Qt, Android/Kotlin, Rust, Python, and Godot — with a primary framework, the full technology list, and suggested commands.
+- Rescan all roots at any time (toolbar button or `Ctrl+R`).
 
-```text
-src/
-  Puppeteer.App/             WPF views, controls, themes, converters, MVVM
-  Puppeteer.Core/            Models, contracts, detection, filtering, hierarchy rules
-  Puppeteer.Infrastructure/  Scanning, SQLite, Git, launchers, icons, watchers, processes
-tests/
-  Puppeteer.Core.Tests/      Behavior-focused unit tests
-design/                      Supplied visual source material
+**Organizing**
+- Three independent filters: **Type** (Desktop / Website / Mobile / Game), **Technology**, and **Category** (Personal / Client / Hackathon / Course / Work).
+- Category is inferred from the folder path, and optionally refined by an LLM (Groq) that reads each project's README — see [AI categorization](#ai-categorization).
+- A folder-tree in the sidebar scopes the grid to any subtree.
+- Full-text search across name, path and stack, plus sort by name, most-recently-opened, or type.
+- Pin the projects you touch most to the top of the grid.
+
+**Working**
+- Interactive terminals backed by real processes, opened in the project's directory. Type commands, run detected presets, split panes to see several shells at once, or go fullscreen.
+- Stop, restart, clear and copy per session; the terminal panel is resizable and collapsible.
+- Open a project in Explorer or your IDE, or copy its path.
+- Live Git status (branch and pending changes) for the selected project.
+
+**Slice-of-life**
+- Resizable, collapsible sidebar / details panels; the app remembers your window size, panel widths, view, sort and last page.
+- Keyboard: `Ctrl+K` search, `Ctrl+N` new terminal, <code>Ctrl+&#96;</code> toggle terminal, `Ctrl+R` rescan, `Esc` clear/close.
+- Ranked project-icon discovery across common asset folders, without touching project files.
+- Everything (roots, projects, icons, presets, pins, preferences) persists in a local SQLite database.
+
+## AI categorization
+
+Categorizing a project as *personal*, *client*, *hackathon* or *coursework* is done first from the folder path, and — when a key is available — refined by Groq's API using the project's README.
+
+- **Development:** copy `.env.example` to `.env` and set `GROQ_API_KEY`.
+- **Anywhere:** paste a key into **Settings → AI categorization**; it overrides the `.env` value and is stored locally.
+
+Without a key, the path-based heuristic is used on its own.
+
+## Running
+
+```bat
+run.bat
 ```
 
-`Puppeteer.Core` has no WPF dependency. Infrastructure owns OS and storage details. The app composes both through `Microsoft.Extensions.Hosting` and dependency injection. Terminal creation always receives a project path and uses it as the process working directory.
+Requires the .NET 10 SDK. The script closes any running instance before rebuilding.
 
-## Detection
+## Project layout
 
-The scanner walks each configured root while skipping `.git`, `node_modules`, `.next`, `dist`, `build`, `target`, `bin`, `obj`, virtual environments, IDE state, coverage output, and other generated folders. `SignatureProjectDetector` examines only a candidate directory and returns a primary framework, all technology signals, and safe command suggestions. Adding a specialized detector later only requires another `IProjectDetector` implementation (or a composite registration).
-
-## Build and run
-
-Requirements: Windows and the .NET 10 SDK.
-
-```powershell
-dotnet restore Puppeteer.sln
-dotnet build Puppeteer.sln
-dotnet test Puppeteer.sln
-dotnet run --project src/Puppeteer.App
-```
-
-Runtime data is stored under `%LOCALAPPDATA%\Puppeteer\puppeteer.db`.
-
-## Planned ConPTY work
-
-`ITerminalService` and `ITerminalSession` isolate process lifetime, input, output, and working-directory behavior. The initial implementation uses redirected `Process` streams. A ConPTY-backed session can replace it without changing project discovery, persistence, or view contracts; the next phase should add terminal emulation, resize propagation, richer shell discovery, and session restoration metadata.
-
-## Screenshots and references
-
-The supplied [projects and settings layouts](design/pages.png), [brand identity](design/identity.png), [application icon](design/icon.png), and [controller mark](design/logo.png) are retained in `/design`. The app embeds the supplied icon and mark directly.
+- `src/Puppeteer.Core` — domain models, detection, classification and search (no UI dependencies).
+- `src/Puppeteer.Infrastructure` — scanning, SQLite persistence, terminals, Git, and the Groq classifier.
+- `src/Puppeteer.App` — the WPF application (MVVM).
+- `tests/Puppeteer.Core.Tests` — unit tests for the core logic.
