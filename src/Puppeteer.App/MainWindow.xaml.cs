@@ -141,6 +141,29 @@ public partial class MainWindow : Window
 
     private void RunningPill_Click(object sender, MouseButtonEventArgs e) => Vm.CurrentPage = "Running";
 
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        if (ctrl && e.Key == Key.K)
+        {
+            Vm.CurrentPage = "Projects";
+            SearchBox.Focus();
+            SearchBox.SelectAll();
+            e.Handled = true;
+        }
+        else if (ctrl && e.Key == Key.OemTilde)
+        {
+            if (Vm.SelectedSession is null && Vm.SelectedProject is not null) Vm.NewSessionCommand.Execute(null);
+            else Vm.TerminalOpen = !Vm.TerminalOpen;
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Escape)
+        {
+            if (!string.IsNullOrEmpty(Vm.Search)) { Vm.Search = ""; e.Handled = true; }
+            else if (Vm.TerminalOpen) { Vm.TerminalOpen = false; e.Handled = true; }
+        }
+    }
+
     private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Enter) return;

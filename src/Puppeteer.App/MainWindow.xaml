@@ -5,7 +5,8 @@
         xmlns:vm="clr-namespace:Puppeteer.App.ViewModels"
         Title="Puppeteer" Width="1600" Height="900" MinWidth="1040" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}" Foreground="{StaticResource TextBrush}"
-        Icon="Assets/icon.png" WindowStyle="None" ResizeMode="CanResize" TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
+        Icon="Assets/icon.png" WindowStyle="None" ResizeMode="CanResize" TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
+        PreviewKeyDown="Window_PreviewKeyDown">
   <WindowChrome.WindowChrome>
     <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"/>
   </WindowChrome.WindowChrome>
@@ -356,18 +357,28 @@
                   <DataTemplate><controls:ProjectCard/></DataTemplate>
                 </ListBox.ItemTemplate>
               </ListBox>
+              <!-- Empty: no roots yet -->
               <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360"
                           Visibility="{Binding Projects.Count, Converter={StaticResource CountVis}, ConverterParameter=Inverse}">
-                <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolder}" Width="30" Height="30" Stroke="{StaticResource FaintBrush}" HorizontalAlignment="Center"/>
-                <TextBlock Text="No projects yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0"/>
-                <TextBlock Text="Add a root folder to scan for projects. Puppeteer detects .NET, Tauri, Flutter, Next.js, Rust, and more."
-                           Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,16"/>
-                <Button Command="{Binding AddRootCommand}" HorizontalAlignment="Center" Padding="16,10">
-                  <StackPanel Orientation="Horizontal">
-                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="15" Height="15" Stroke="{StaticResource AccentBrush}"/>
-                    <TextBlock Text="Add Root" Margin="8,0,0,0" VerticalAlignment="Center"/>
-                  </StackPanel>
-                </Button>
+                <StackPanel Visibility="{Binding HasAnyProjects, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}">
+                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolder}" Width="30" Height="30" Stroke="{StaticResource FaintBrush}" HorizontalAlignment="Center"/>
+                  <TextBlock Text="No projects yet" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                  <TextBlock Text="Add a root folder to scan for projects. Puppeteer detects .NET, Tauri, Flutter, Next.js, Rust, and more."
+                             Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,16"/>
+                  <Button Command="{Binding AddRootCommand}" HorizontalAlignment="Center" Padding="16,10">
+                    <StackPanel Orientation="Horizontal">
+                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="15" Height="15" Stroke="{StaticResource AccentBrush}"/>
+                      <TextBlock Text="Add Root" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Button>
+                </StackPanel>
+                <!-- Empty: filtered to nothing -->
+                <StackPanel Visibility="{Binding HasAnyProjects, Converter={StaticResource BoolVis}}">
+                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSearch}" Width="28" Height="28" Stroke="{StaticResource FaintBrush}" HorizontalAlignment="Center"/>
+                  <TextBlock Text="No matches" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+                  <TextBlock Text="No projects match the current filters or search." Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,16"/>
+                  <Button Command="{Binding ClearFiltersCommand}" HorizontalAlignment="Center" Padding="16,10" Content="Clear filters"/>
+                </StackPanel>
               </StackPanel>
             </Grid>
 

@@ -30,6 +30,8 @@ public sealed class MainViewModel:ObservableObject
  public ObservableCollection<FolderNode> FolderTree{get;}=[];
  private FolderNode? _selectedFolder; public FolderNode? SelectedFolder{get=>_selectedFolder;set{if(Set(ref _selectedFolder,value)){Raise(nameof(FolderFilterActive));Refresh();}}}
  public bool FolderFilterActive=>_selectedFolder is not null;
+ public bool HasAnyProjects=>_allProjects.Count>0;
+ public RelayCommand ClearFiltersCommand{get;}
  private bool _terminalMaximized; public bool TerminalMaximized{get=>_terminalMaximized;set=>Set(ref _terminalMaximized,value);}
  private bool _terminalSplit; public bool TerminalSplit{get=>_terminalSplit;set=>Set(ref _terminalSplit,value);}
  private bool _sidebarCollapsed; public bool SidebarCollapsed{get=>_sidebarCollapsed;set=>Set(ref _sidebarCollapsed,value);}
@@ -41,6 +43,7 @@ public sealed class MainViewModel:ObservableObject
   NavigateCommand=new(p=>CurrentPage=p?.ToString()??"Projects");AddRootCommand=new(_=>AddRootAsync());RemoveRootCommand=new(p=>RemoveRootAsync(p as RootFolder),p=>p is RootFolder);OpenTerminalCommand=new(p=>OpenTerminalAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenFolderCommand=new(p=>OpenFolder(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenIdeCommand=new(p=>OpenIde(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CollapseTerminalCommand=new(_=>TerminalOpen=false);FindIconCommand=new(_=>FindIconsAsync(),_=>SelectedProject is not null);ChangeIconCommand=new(_=>ChangeIconAsync(),_=>SelectedProject is not null);ResetIconCommand=new(_=>SetIconAsync(null),_=>SelectedProject is not null);ChooseCandidateCommand=new(p=>SetIconAsync((p as IconCandidate)?.Path),p=>p is IconCandidate);
   CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.Output.Clear();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);
   SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
+  ClearFiltersCommand=new(_=>{_selectedFolder=null;Raise(nameof(SelectedFolder));Raise(nameof(FolderFilterActive));_selectedType="All";_selectedTechnology="All";_selectedCategory="All";_search="";Raise(nameof(Search));Refresh();});
  }
  private async Task RescanAllAsync()
  {
@@ -116,6 +119,7 @@ public sealed class MainViewModel:ObservableObject
     "Type"=>filtered.OrderBy(ProjectTypeRules.Of,StringComparer.OrdinalIgnoreCase).ThenBy(p=>p.Name,StringComparer.OrdinalIgnoreCase),
     _=>filtered.OrderBy(p=>p.Name,StringComparer.OrdinalIgnoreCase).AsEnumerable()};
    Projects.Clear();foreach(var p in sorted)Projects.Add(p);
+   Raise(nameof(HasAnyProjects));
   }
   finally{_refreshing=false;}
  }
