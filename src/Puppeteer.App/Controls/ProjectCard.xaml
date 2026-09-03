@@ -1,7 +1,8 @@
 <UserControl x:Class="Puppeteer.App.Controls.ProjectCard"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+             HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+             MouseDoubleClick="Card_MouseDoubleClick">
   <UserControl.Resources>
     <Style x:Key="CardLink" TargetType="Button">
       <Setter Property="Background" Value="Transparent"/>
@@ -19,7 +20,8 @@
       </Setter>
     </Style>
   </UserControl.Resources>
-  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand">
+  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand"
+          ToolTip="Double-click to open a terminal here">
     <Border.Style>
       <Style TargetType="Border">
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>

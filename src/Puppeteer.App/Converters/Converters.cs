@@ -146,6 +146,14 @@ public sealed class TakeConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>Yields a project's product type ("Desktop", "Website"…) from its detected stack.</summary>
+public sealed class ProjectTypeConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
+        value is Project p ? ProjectTypeRules.Of(p) : "";
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
 public sealed class TechIconBrushConverter : IValueConverter
 {
     public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>

@@ -18,6 +18,7 @@
   <conv:ViewModeHeightConverter x:Key="ViewHeight"/>
   <conv:TakeConverter x:Key="Take"/>
   <conv:MoreCountConverter x:Key="MoreCount"/>
+  <conv:ProjectTypeConverter x:Key="ProjectType"/>
   <conv:ToastMarginConverter x:Key="ToastMargin"/>
  </ResourceDictionary></Application.Resources>
 </Application>

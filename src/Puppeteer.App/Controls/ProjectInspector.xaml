@@ -41,8 +41,19 @@
                    Visibility="{Binding SelectedProject, Converter={StaticResource StatusVis}}"/>
         </Grid>
 
+        <!-- Type / Category meta -->
+        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+          <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="9,4" Margin="0,0,7,0">
+            <TextBlock Text="{Binding SelectedProject, Converter={StaticResource ProjectType}}" FontSize="11.5" Foreground="{StaticResource TextDimBrush}"/>
+          </Border>
+          <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="9,4"
+                  Visibility="{Binding SelectedProject.Category, Converter={StaticResource NullVis}}">
+            <TextBlock Text="{Binding SelectedProject.Category}" FontSize="11.5" Foreground="{StaticResource AccentBrush}"/>
+          </Border>
+        </StackPanel>
+
         <!-- Stack -->
-        <TextBlock Text="Stack" Style="{StaticResource SectionTitle}" Margin="0,24,0,10"/>
+        <TextBlock Text="Stack" Style="{StaticResource SectionTitle}" Margin="0,22,0,10"/>
         <ItemsControl ItemsSource="{Binding SelectedProject.Technologies}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
