@@ -28,6 +28,11 @@
         <Style.Triggers>
           <Trigger Property="IsMouseOver" Value="True">
             <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
+            <Setter Property="Effect">
+              <Setter.Value>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="3" Opacity="0.35" Color="#000000"/>
+              </Setter.Value>
+            </Setter>
           </Trigger>
           <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
             <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>

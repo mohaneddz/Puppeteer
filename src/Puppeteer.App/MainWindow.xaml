@@ -493,6 +493,29 @@
                 <TextBlock Text="Tauri · .NET/WPF · Flutter · Next.js · Vite · Node.js · Qt · Android · Rust · Python · Godot"
                            Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
 
+                <TextBlock Text="Keyboard shortcuts" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <Grid HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Ctrl + K" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6"/>
+                  <TextBlock Grid.Row="0" Grid.Column="1" Text="Focus search" Style="{StaticResource MutedText}"/>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Ctrl + N" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Text="New terminal" Style="{StaticResource MutedText}"/>
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Ctrl + `" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Text="Toggle terminal" Style="{StaticResource MutedText}"/>
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Ctrl + R" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}" Margin="0,0,0,6"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="Rescan roots" Style="{StaticResource MutedText}"/>
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Esc" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}"/>
+                  <TextBlock Grid.Row="4" Grid.Column="1" Text="Clear search / close terminal" Style="{StaticResource MutedText}"/>
+                </Grid>
+                <Button Content="Reset window layout" Command="{Binding ResetLayoutCommand}" HorizontalAlignment="Left" Margin="0,16,0,0" Padding="14,9"/>
+
                 <TextBlock Text="About" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
                 <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap">
                   <Run Text="Puppeteer"/> <Run Text="{Binding Version, Mode=OneWay}"/> <LineBreak/>
