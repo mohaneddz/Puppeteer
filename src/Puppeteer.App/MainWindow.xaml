@@ -151,7 +151,11 @@
                 <TextBlock Text="Add Root" Margin="8,0,0,0" VerticalAlignment="Center"/>
               </StackPanel>
             </Button>
-            <Button Style="{StaticResource IconButton}" Width="38" Height="38" Margin="9,0,0,0" ToolTip="Toggle details panel"
+            <Button Style="{StaticResource IconButton}" Width="38" Height="38" Margin="9,0,0,0" ToolTip="Rescan all roots"
+                    Command="{Binding RescanCommand}">
+              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="16" Height="16"/>
+            </Button>
+            <Button Style="{StaticResource IconButton}" Width="38" Height="38" Margin="4,0,0,0" ToolTip="Toggle details panel"
                     Command="{Binding ToggleDetailsCommand}">
               <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="16" Height="16"/>
             </Button>
@@ -276,6 +280,13 @@
               </Grid.RowDefinitions>
               <StackPanel Orientation="Horizontal">
                 <TextBlock Text="Projects" Style="{StaticResource PageTitle}"/>
+                <TextBlock VerticalAlignment="Center" Margin="14,8,0,0" Style="{StaticResource MutedText}">
+                  <Run Text="{Binding Projects.Count, Mode=OneWay}"/><Run Text=" shown"/>
+                </TextBlock>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,8,0,0" Visibility="{Binding IsBusy, Converter={StaticResource BoolVis}}">
+                  <Ellipse Width="7" Height="7" Fill="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                  <TextBlock Text="Scanning…" Foreground="{StaticResource AccentBrush}" FontSize="12.5" Margin="7,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
                 <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10,3" Margin="14,6,0,0" VerticalAlignment="Center"
                         Visibility="{Binding FolderFilterActive, Converter={StaticResource BoolVis}}">
                   <StackPanel Orientation="Horizontal">

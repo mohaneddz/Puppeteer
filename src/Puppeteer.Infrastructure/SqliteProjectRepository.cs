@@ -94,7 +94,7 @@ public sealed class SqliteProjectRepository : IProjectRepository
             command.CommandText = """
                 INSERT INTO Project(Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category)
                 VALUES($id,$name,$path,$root,$primary,$tech,$hierarchy,$presets,$opened,$created,$updated,$icon,$category)
-                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(excluded.Category,Project.Category);
+                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(Project.Category,excluded.Category);
                 """;
             command.Parameters.AddWithValue("$id", project.Id.ToString()); command.Parameters.AddWithValue("$name", project.Name); command.Parameters.AddWithValue("$path", project.Path);
             command.Parameters.AddWithValue("$root", project.RootId.ToString()); command.Parameters.AddWithValue("$primary", project.PrimaryTechnology);

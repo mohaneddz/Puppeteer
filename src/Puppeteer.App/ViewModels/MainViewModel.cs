@@ -23,7 +23,7 @@ public sealed class MainViewModel:ObservableObject
  public RelayCommand CopyPathCommand{get;} public RelayCommand SetViewCommand{get;} public RelayCommand NewSessionCommand{get;} public RelayCommand CloseSessionCommand{get;} public RelayCommand ClearOutputCommand{get;} public RelayCommand RunPresetCommand{get;}
  private string _groqApiKey=""; public string GroqApiKey{get=>_groqApiKey;set{if(Set(ref _groqApiKey,value)){_=SaveGroqKeyAsync();Raise(nameof(UsingEnvGroqKey));}}}
  public bool UsingEnvGroqKey=>string.IsNullOrWhiteSpace(_groqApiKey)&&!string.IsNullOrWhiteSpace(_config.GroqApiKeyFromEnv);
- public RelayCommand SelectFolderCommand{get;} public RelayCommand ClearFolderCommand{get;} public RelayCommand ToggleTerminalMaxCommand{get;} public RelayCommand ToggleSplitCommand{get;} public RelayCommand ToggleSidebarCommand{get;} public RelayCommand ToggleDetailsCommand{get;}
+ public RelayCommand SelectFolderCommand{get;} public RelayCommand ClearFolderCommand{get;} public RelayCommand ToggleTerminalMaxCommand{get;} public RelayCommand ToggleSplitCommand{get;} public RelayCommand ToggleSidebarCommand{get;} public RelayCommand ToggleDetailsCommand{get;} public AsyncRelayCommand RescanCommand{get;}
  public ObservableCollection<FolderNode> FolderTree{get;}=[];
  private FolderNode? _selectedFolder; public FolderNode? SelectedFolder{get=>_selectedFolder;set{if(Set(ref _selectedFolder,value)){Raise(nameof(FolderFilterActive));Refresh();}}}
  public bool FolderFilterActive=>_selectedFolder is not null;
@@ -37,7 +37,24 @@ public sealed class MainViewModel:ObservableObject
   Sessions.CollectionChanged+=(_,__)=>{Raise(nameof(RunningCount));Raise(nameof(RunningBadge));};
   NavigateCommand=new(p=>CurrentPage=p?.ToString()??"Projects");AddRootCommand=new(_=>AddRootAsync());RemoveRootCommand=new(p=>RemoveRootAsync(p as RootFolder),p=>p is RootFolder);OpenTerminalCommand=new(p=>OpenTerminalAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenFolderCommand=new(p=>OpenFolder(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenIdeCommand=new(p=>OpenIde(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CollapseTerminalCommand=new(_=>TerminalOpen=false);FindIconCommand=new(_=>FindIconsAsync(),_=>SelectedProject is not null);ChangeIconCommand=new(_=>ChangeIconAsync(),_=>SelectedProject is not null);ResetIconCommand=new(_=>SetIconAsync(null),_=>SelectedProject is not null);ChooseCandidateCommand=new(p=>SetIconAsync((p as IconCandidate)?.Path),p=>p is IconCandidate);
   CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.Output.Clear();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);
-  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);
+  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
+ }
+ private async Task RescanAllAsync()
+ {
+  if(Roots.Count==0){Status="No roots to rescan — add one first.";return;}
+  IsBusy=true;Status="Rescanning roots…";
+  try
+  {
+   foreach(var root in Roots.ToArray())await _repository.UpsertProjectsAsync(await _scanner.ScanAsync(root));
+   var current=SelectedProject?.Id;
+   _allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());
+   RebuildTree();Refresh();
+   SelectedProject=Projects.FirstOrDefault(p=>p.Id==current)??Projects.FirstOrDefault();
+   Status=$"Rescanned {_allProjects.Count} projects";
+   _=ClassifyUncategorizedAsync();
+  }
+  catch(Exception e){Status=e.Message;}
+  finally{IsBusy=false;}
  }
  public async Task LoadAsync(){_groqApiKey=await _repository.GetSettingAsync("GroqApiKey")??"";Raise(nameof(GroqApiKey));Raise(nameof(UsingEnvGroqKey));Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();}
  private Task SaveGroqKeyAsync()=>_repository.SetSettingAsync("GroqApiKey",_groqApiKey.Trim());
