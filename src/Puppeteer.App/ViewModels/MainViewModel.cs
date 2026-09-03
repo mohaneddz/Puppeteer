@@ -14,6 +14,7 @@ public sealed class MainViewModel:ObservableObject
  public bool HasMoreGitFiles=>_selectedProject?.Git is {Files: not null} g&&g.ModifiedFileCount>g.Files.Count;
  public int MoreGitFileCount=>_selectedProject?.Git is {Files: not null} g?Math.Max(0,g.ModifiedFileCount-g.Files.Count):0; public TerminalSessionViewModel? SelectedSession{get=>_selectedSession;set{if(Set(ref _selectedSession,value)&&value is not null)TerminalOpen=true;}} public bool TerminalOpen{get=>_terminalOpen;set=>Set(ref _terminalOpen,value);} public bool IsBusy{get=>_isBusy;set=>Set(ref _isBusy,value);} public string Status{get=>_status;set{if(Set(ref _status,value))ShowToast();}} public string DefaultShell{get=>_defaultShell;set=>Set(ref _defaultShell,value);}
  private string _viewMode="Grid"; public string ViewMode{get=>_viewMode;set=>Set(ref _viewMode,value);}
+ public IReadOnlyList<string> SortModes{get;}=["Name","Recent","Type"]; private string _sortMode="Name"; public string SortMode{get=>_sortMode;set{if(Set(ref _sortMode,value))Refresh();}}
  private bool _statusVisible; public bool StatusVisible{get=>_statusVisible;set=>Set(ref _statusVisible,value);} private DispatcherTimer? _toast;
  private void ShowToast(){StatusVisible=true;(_toast??=CreateToast()).Stop();_toast.Start();}
  private DispatcherTimer CreateToast(){var t=new DispatcherTimer{Interval=TimeSpan.FromSeconds(3.2)};t.Tick+=(_,__)=>{StatusVisible=false;t.Stop();};return t;}
@@ -103,7 +104,11 @@ public sealed class MainViewModel:ObservableObject
    var running=Sessions.Where(s=>s.Session is not null&&s.Running).Select(s=>_allProjects.FirstOrDefault(p=>p.Path.Equals(s.Session!.ProjectPath,StringComparison.OrdinalIgnoreCase))?.Id??Guid.Empty).ToHashSet();
    var scoped=_selectedFolder is null?_allProjects:_allProjects.Where(p=>p.Path.StartsWith(_selectedFolder.Path,StringComparison.OrdinalIgnoreCase));
    var filtered=_searchService.Filter(scoped,Search,_selectedType,_selectedTechnology,_selectedCategory,running);
-   Projects.Clear();foreach(var p in filtered)Projects.Add(p);
+   var sorted=_sortMode switch{
+    "Recent"=>filtered.OrderByDescending(p=>p.LastOpenedAt??DateTimeOffset.MinValue).ThenBy(p=>p.Name,StringComparer.OrdinalIgnoreCase),
+    "Type"=>filtered.OrderBy(ProjectTypeRules.Of,StringComparer.OrdinalIgnoreCase).ThenBy(p=>p.Name,StringComparer.OrdinalIgnoreCase),
+    _=>filtered.OrderBy(p=>p.Name,StringComparer.OrdinalIgnoreCase).AsEnumerable()};
+   Projects.Clear();foreach(var p in sorted)Projects.Add(p);
   }
   finally{_refreshing=false;}
  }

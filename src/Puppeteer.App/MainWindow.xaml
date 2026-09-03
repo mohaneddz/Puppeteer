@@ -313,16 +313,22 @@
                     <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Width="150" Height="36"/>
                   </StackPanel>
                 </StackPanel>
-                <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="3">
-                  <StackPanel Orientation="Horizontal">
-                    <Button Command="{Binding SetViewCommand}" CommandParameter="Grid" Style="{StaticResource ViewToggleButton}" ToolTip="Grid view" Margin="0,0,2,0">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="15" Height="15" Stroke="{Binding ViewMode, Converter={StaticResource ViewStroke}, ConverterParameter=Grid}"/>
-                    </Button>
-                    <Button Command="{Binding SetViewCommand}" CommandParameter="List" Style="{StaticResource ViewToggleButton}" ToolTip="List view">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconList}" Width="15" Height="15" Stroke="{Binding ViewMode, Converter={StaticResource ViewStroke}, ConverterParameter=List}"/>
-                    </Button>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                  <StackPanel Margin="0,0,12,0">
+                    <TextBlock Text="Sort" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding SortModes}" SelectedItem="{Binding SortMode}" Width="130" Height="36"/>
                   </StackPanel>
-                </Border>
+                  <Border VerticalAlignment="Bottom" Height="36" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8" Padding="3">
+                    <StackPanel Orientation="Horizontal">
+                      <Button Command="{Binding SetViewCommand}" CommandParameter="Grid" Style="{StaticResource ViewToggleButton}" ToolTip="Grid view" Margin="0,0,2,0">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="15" Height="15" Stroke="{Binding ViewMode, Converter={StaticResource ViewStroke}, ConverterParameter=Grid}"/>
+                      </Button>
+                      <Button Command="{Binding SetViewCommand}" CommandParameter="List" Style="{StaticResource ViewToggleButton}" ToolTip="List view">
+                        <Path Style="{StaticResource IconPath}" Data="{StaticResource IconList}" Width="15" Height="15" Stroke="{Binding ViewMode, Converter={StaticResource ViewStroke}, ConverterParameter=List}"/>
+                      </Button>
+                    </StackPanel>
+                  </Border>
+                </StackPanel>
               </Grid>
               <ListBox Grid.Row="2" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}"
                        ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Padding="0,0,0,120"
