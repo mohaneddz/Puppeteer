@@ -1,0 +1,39 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+  <FontFamily x:Key="DisplayFont">Segoe UI Variable Display, Segoe UI Semibold, Segoe UI</FontFamily>
+  <FontFamily x:Key="MonoFont">Cascadia Code, Cascadia Mono, Consolas</FontFamily>
+
+  <Style TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource UiFont}"/>
+    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+    <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+    <Setter Property="TextOptions.TextRenderingMode" Value="ClearType"/>
+    <Setter Property="FontSize" Value="13"/>
+  </Style>
+
+  <Style x:Key="Eyebrow" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="10.5"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+    <Setter Property="TextOptions.TextFormattingMode" Value="Ideal"/>
+  </Style>
+
+  <Style x:Key="PageTitle" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource DisplayFont}"/>
+    <Setter Property="FontSize" Value="30"/>
+    <Setter Property="FontWeight" Value="Bold"/>
+    <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+  </Style>
+
+  <Style x:Key="Title" TargetType="TextBlock" BasedOn="{StaticResource PageTitle}"/>
+
+  <Style x:Key="SectionTitle" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="14"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+  </Style>
+
+  <Style x:Key="MutedText" TargetType="TextBlock">
+    <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+    <Setter Property="FontSize" Value="12.5"/>
+  </Style>
+</ResourceDictionary>
