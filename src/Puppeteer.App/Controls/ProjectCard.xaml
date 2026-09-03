@@ -65,9 +65,13 @@
           <TextBlock Text="{Binding Path}" Style="{StaticResource MutedText}" Margin="0,2,0,0"
                      TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
         </StackPanel>
-        <Ellipse Grid.Column="2" Width="9" Height="9" VerticalAlignment="Top" Margin="0,3,0,0"
-                 Fill="{Binding Converter={StaticResource StatusBrush}}"
-                 Visibility="{Binding Converter={StaticResource StatusVis}}"/>
+        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">
+          <Path Data="{StaticResource IconStar}" Fill="{StaticResource AccentBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,6,0"
+                Visibility="{Binding Id, Converter={StaticResource Pinned}}"/>
+          <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,1,0,0"
+                   Fill="{Binding Converter={StaticResource StatusBrush}}"
+                   Visibility="{Binding Converter={StaticResource StatusVis}}"/>
+        </StackPanel>
       </Grid>
 
       <!-- Tech badges (capped so the fixed-height card never clips; full stack is in the inspector) -->
@@ -107,6 +111,7 @@
             </StackPanel>
             <Button.ContextMenu>
               <ContextMenu>
+                <MenuItem Header="Pin / Unpin" Command="{Binding PlacementTarget.Tag.TogglePinCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                 <MenuItem Header="Open Terminal" Command="{Binding PlacementTarget.Tag.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                 <MenuItem Header="Open Folder" Command="{Binding PlacementTarget.Tag.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
                 <MenuItem Header="Open in IDE" Command="{Binding PlacementTarget.Tag.OpenIdeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>

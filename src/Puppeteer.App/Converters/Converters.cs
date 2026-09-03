@@ -146,6 +146,20 @@ public sealed class TakeConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>Shared set of pinned project ids. Held statically so a per-card converter can read it;
+/// the grid rebuilds (and thus re-evaluates the binding) whenever pins change.</summary>
+public static class PinStore
+{
+    public static readonly HashSet<Guid> Ids = [];
+}
+
+public sealed class PinnedVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
+        value is Guid id && PinStore.Ids.Contains(id) ? Visibility.Visible : Visibility.Collapsed;
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
 /// <summary>Yields a project's product type ("Desktop", "Website"…) from its detected stack.</summary>
 public sealed class ProjectTypeConverter : IValueConverter
 {

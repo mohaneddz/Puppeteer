@@ -19,6 +19,7 @@
   <conv:TakeConverter x:Key="Take"/>
   <conv:MoreCountConverter x:Key="MoreCount"/>
   <conv:ProjectTypeConverter x:Key="ProjectType"/>
+  <conv:PinnedVisibilityConverter x:Key="Pinned"/>
   <conv:ToastMarginConverter x:Key="ToastMargin"/>
  </ResourceDictionary></Application.Resources>
 </Application>
