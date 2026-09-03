@@ -1,0 +1,137 @@
+using System.ComponentModel;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
+using Puppeteer.App.ViewModels;
+
+namespace Puppeteer.App;
+
+public partial class MainWindow : Window
+{
+    private MainViewModel Vm => (MainViewModel)DataContext;
+
+    private double _sidebarWidth = 238;
+    private double _detailsWidth = 346;
+    private double _terminalHeight = 280;
+
+    public MainWindow(MainViewModel viewModel)
+    {
+        InitializeComponent();
+        DataContext = viewModel;
+        viewModel.PropertyChanged += Vm_PropertyChanged;
+        ApplyTerminalLayout();
+        if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 } capturePath)
+            Loaded += (_, _) => CaptureAndExit(capturePath);
+    }
+
+    private void CaptureAndExit(string path)
+    {
+        var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(1.6) };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            var target = new System.Windows.Media.Imaging.RenderTargetBitmap((int)ActualWidth, (int)ActualHeight, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+            target.Render(this);
+            var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(target));
+            using (var stream = System.IO.File.Create(path)) encoder.Save(stream);
+            Application.Current.Shutdown();
+        };
+        timer.Start();
+    }
+
+    private void Vm_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(MainViewModel.SidebarCollapsed): ApplySidebar(); break;
+            case nameof(MainViewModel.DetailsCollapsed): ApplyDetails(); break;
+            case nameof(MainViewModel.TerminalOpen):
+            case nameof(MainViewModel.TerminalMaximized): ApplyTerminalLayout(); break;
+        }
+    }
+
+    private void ApplySidebar()
+    {
+        if (Vm.SidebarCollapsed)
+        {
+            if (SidebarColumn.ActualWidth > 0) _sidebarWidth = SidebarColumn.ActualWidth;
+            SidebarColumn.Width = new GridLength(0);
+        }
+        else SidebarColumn.Width = new GridLength(_sidebarWidth);
+    }
+
+    private void ApplyDetails()
+    {
+        if (Vm.DetailsCollapsed)
+        {
+            if (DetailsColumn.ActualWidth > 0) _detailsWidth = DetailsColumn.ActualWidth;
+            DetailsColumn.Width = new GridLength(0);
+        }
+        else DetailsColumn.Width = new GridLength(_detailsWidth);
+    }
+
+    private void ApplyTerminalLayout()
+    {
+        var open = Vm.TerminalOpen;
+        var maximized = open && Vm.TerminalMaximized;
+        TerminalSplitterRow.Height = open && !maximized ? GridLength.Auto : new GridLength(0);
+        if (maximized)
+        {
+            PagesRow.Height = new GridLength(0);
+            TerminalRow.Height = new GridLength(1, GridUnitType.Star);
+        }
+        else if (open)
+        {
+            PagesRow.Height = new GridLength(1, GridUnitType.Star);
+            TerminalRow.Height = new GridLength(_terminalHeight);
+            TerminalRow.MinHeight = 120;
+        }
+        else
+        {
+            PagesRow.Height = new GridLength(1, GridUnitType.Star);
+            TerminalRow.Height = new GridLength(0);
+            TerminalRow.MinHeight = 0;
+        }
+    }
+
+    private void TerminalSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
+    {
+        if (TerminalRow.ActualHeight > 40) _terminalHeight = TerminalRow.ActualHeight;
+    }
+
+    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton != MouseButton.Left) return;
+        if (e.ClickCount == 2)
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        else
+            DragMove();
+    }
+
+    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+
+    private void Maximize_Click(object sender, RoutedEventArgs e) =>
+        WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+
+    private void Close_Click(object sender, RoutedEventArgs e) => Close();
+
+    private void RunningPill_Click(object sender, MouseButtonEventArgs e) => Vm.CurrentPage = "Running";
+
+    private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        if (sender is FrameworkElement { DataContext: TerminalSessionViewModel session } && session.SendCommand.CanExecute(null))
+            session.SendCommand.Execute(null);
+    }
+
+    // Auto-follow the tail of a terminal pane's output unless the user has scrolled up to read back.
+    private void TerminalOutput_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        if (e.ExtentHeightChange <= 0 || sender is not ScrollViewer viewer) return;
+        if (viewer.VerticalOffset >= viewer.ScrollableHeight - e.ExtentHeightChange - 4)
+            viewer.ScrollToEnd();
+    }
+}
