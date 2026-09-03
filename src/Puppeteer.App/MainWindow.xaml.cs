@@ -191,6 +191,12 @@ public partial class MainWindow : Window
     private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (sender is not TextBox box || box.DataContext is not TerminalSessionViewModel session) return;
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.L)
+        {
+            session.Output.Clear();
+            e.Handled = true;
+            return;
+        }
         switch (e.Key)
         {
             case Key.Enter:

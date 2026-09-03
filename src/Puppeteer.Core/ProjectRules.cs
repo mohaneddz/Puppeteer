@@ -83,7 +83,7 @@ public sealed class ProjectSearchService
             if (IsSet(technology) && !project.Technologies.Any(t => t.Equals(technology, StringComparison.OrdinalIgnoreCase))) return false;
             if (IsSet(category) && !string.Equals(project.Category ?? "Other", category, StringComparison.OrdinalIgnoreCase)) return false;
 
-            var searchable = string.Join(' ', project.Name, project.Path, project.PrimaryTechnology,
+            var searchable = string.Join(' ', project.Name, project.Path, project.PrimaryTechnology, project.Category ?? "",
                 string.Join(' ', project.Technologies), string.Join(' ', project.Hierarchy));
             return terms.All(term => term.Equals("running", StringComparison.OrdinalIgnoreCase)
                 ? runningProjectIds?.Contains(project.Id) == true
