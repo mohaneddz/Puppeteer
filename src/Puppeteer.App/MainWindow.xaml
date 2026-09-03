@@ -6,7 +6,7 @@
         Title="Puppeteer" Width="1600" Height="900" MinWidth="1040" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}" Foreground="{StaticResource TextBrush}"
         Icon="Assets/icon.png" WindowStyle="None" ResizeMode="CanResize" TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
-        PreviewKeyDown="Window_PreviewKeyDown">
+        PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
   <WindowChrome.WindowChrome>
     <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"/>
   </WindowChrome.WindowChrome>

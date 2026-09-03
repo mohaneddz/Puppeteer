@@ -95,7 +95,14 @@ public sealed class MainViewModel:ObservableObject
  }
  private void ApplyCategory(Guid id,string category){var i=_allProjects.FindIndex(p=>p.Id==id);if(i>=0)_allProjects[i]=_allProjects[i] with{Category=category};}
  private void RebuildTree(){FolderTree.Clear();foreach(var node in FolderNode.Build(Roots,_allProjects))FolderTree.Add(node);if(_selectedFolder is not null&&_allProjects.All(p=>!p.Path.StartsWith(_selectedFolder.Path,StringComparison.OrdinalIgnoreCase)))SelectedFolder=null;}
- private async Task AddRootAsync(){var path=_picker.PickFolder();if(string.IsNullOrWhiteSpace(path))return;IsBusy=true;Status="Scanning root…";try{var root=new RootFolder(Guid.NewGuid(),Path.GetFullPath(path),DateTimeOffset.UtcNow);await _repository.AddRootAsync(root);Roots.Add(root);var scanned=await _scanner.ScanAsync(root);await _repository.UpsertProjectsAsync(scanned);_allProjects.RemoveAll(p=>p.RootId==root.Id);_allProjects.AddRange(scanned);RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status=$"Found {scanned.Count} projects";_=ClassifyUncategorizedAsync();}catch(Exception e){Status=e.Message;}finally{IsBusy=false;}}
+ private Task AddRootAsync(){var path=_picker.PickFolder();return string.IsNullOrWhiteSpace(path)?Task.CompletedTask:AddRootPathAsync(path);}
+ public async Task AddRootPathAsync(string path){
+  if(string.IsNullOrWhiteSpace(path)||!Directory.Exists(path)){Status="That folder doesn't exist.";return;}
+  var full=Path.GetFullPath(path);
+  if(Roots.Any(r=>r.Path.Equals(full,StringComparison.OrdinalIgnoreCase))){Status="That folder is already a root.";return;}
+  IsBusy=true;Status="Scanning root…";
+  try{var root=new RootFolder(Guid.NewGuid(),full,DateTimeOffset.UtcNow);await _repository.AddRootAsync(root);Roots.Add(root);var scanned=await _scanner.ScanAsync(root);await _repository.UpsertProjectsAsync(scanned);_allProjects.RemoveAll(p=>p.RootId==root.Id);_allProjects.AddRange(scanned);await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status=$"Found {scanned.Count} projects";_=ClassifyUncategorizedAsync();}
+  catch(Exception e){Status=e.Message;}finally{IsBusy=false;}}
  private async Task RemoveRootAsync(RootFolder? root){if(root is null)return;await _repository.RemoveRootAsync(root.Id);Roots.Remove(root);_allProjects.RemoveAll(p=>p.RootId==root.Id);RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status="Root removed from Puppeteer; project files were not changed.";}
  private void OpenFolder(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenFolder(project.Path);MarkOpened(project);Status=$"Opened {project.Name} in Explorer";}else Status=$"{project.Name} no longer exists on disk.";}
  private void OpenIde(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenInIde(project.Path);MarkOpened(project);Status=$"Opening {project.Name} in your IDE";}else Status=$"{project.Name} no longer exists on disk.";}

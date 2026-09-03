@@ -141,6 +141,20 @@ public partial class MainWindow : Window
 
     private void RunningPill_Click(object sender, MouseButtonEventArgs e) => Vm.CurrentPage = "Running";
 
+    private void Window_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private async void Window_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is not string[] paths) return;
+        foreach (var path in paths)
+            if (System.IO.Directory.Exists(path))
+                await Vm.AddRootPathAsync(path);
+    }
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
