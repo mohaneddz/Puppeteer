@@ -1,0 +1,119 @@
+<UserControl x:Class="Puppeteer.App.Controls.ProjectCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+  <UserControl.Resources>
+    <Style x:Key="CardLink" TargetType="Button">
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="BorderThickness" Value="0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="HorizontalContentAlignment" Value="Left"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="Transparent" Padding="0,2">
+              <ContentPresenter VerticalAlignment="Center"/>
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Resources>
+  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand">
+    <Border.Style>
+      <Style TargetType="Border">
+        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+        <Style.Triggers>
+          <Trigger Property="IsMouseOver" Value="True">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
+          </Trigger>
+          <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Background" Value="{StaticResource CardHoverBrush}"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </Border.Style>
+    <Grid>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+
+      <!-- Header -->
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Grid Width="46" Height="46" VerticalAlignment="Top">
+          <Border CornerRadius="11" Background="{Binding PrimaryTechnology, Converter={StaticResource TechTint}}"
+                  BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
+          <TextBlock Text="{Binding PrimaryTechnology, Converter={StaticResource TechMono}}"
+                     Foreground="{Binding PrimaryTechnology, Converter={StaticResource TechBrush}}"
+                     FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     Visibility="{Binding Converter={StaticResource IconFallbackVis}}"/>
+          <Image Source="{Binding Converter={StaticResource ProjectIcon}}" Width="27" Height="27" Stretch="Uniform"
+                 RenderOptions.BitmapScalingMode="HighQuality"/>
+        </Grid>
+        <StackPanel Grid.Column="1" Margin="13,1,0,0" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Name}" FontSize="16.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding Path}" Style="{StaticResource MutedText}" Margin="0,2,0,0"
+                     TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+        </StackPanel>
+        <Ellipse Grid.Column="2" Width="9" Height="9" VerticalAlignment="Top" Margin="0,3,0,0"
+                 Fill="{Binding Converter={StaticResource StatusBrush}}"
+                 Visibility="{Binding Converter={StaticResource StatusVis}}"/>
+      </Grid>
+
+      <!-- Tech badges (capped so the fixed-height card never clips; full stack is in the inspector) -->
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,0">
+        <ItemsControl ItemsSource="{Binding Technologies, Converter={StaticResource Take}, ConverterParameter=3}">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Style="{StaticResource TechnologyBadge}" Margin="0,0,6,0">
+                <TextBlock Text="{Binding}" Style="{StaticResource TechnologyBadgeText}"/>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="{Binding Technologies.Count, Converter={StaticResource MoreCount}, ConverterParameter=3}"
+                   Style="{StaticResource TechnologyBadgeText}" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
+      </StackPanel>
+
+      <!-- Footer -->
+      <Border Grid.Row="2" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Margin="0,15,0,0" Padding="0,11,0,0">
+        <Grid>
+          <Button Style="{StaticResource CardLink}" HorizontalAlignment="Left"
+                  Command="{Binding DataContext.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                  CommandParameter="{Binding}">
+            <StackPanel Orientation="Horizontal">
+              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="15" Height="15" Stroke="{StaticResource AccentBrush}"/>
+              <TextBlock Text="Open Terminal" Foreground="{StaticResource AccentBrush}" FontSize="12.5" FontWeight="Medium" Margin="9,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
+          <Button x:Name="KebabButton" Style="{StaticResource IconButton}" Width="26" Height="24" HorizontalAlignment="Right"
+                  Click="Kebab_Click" ToolTip="More actions"
+                  Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+              <Ellipse Width="3.4" Height="3.4" Fill="{StaticResource MutedTextBrush}" Margin="0,1.4"/>
+              <Ellipse Width="3.4" Height="3.4" Fill="{StaticResource MutedTextBrush}" Margin="0,1.4"/>
+              <Ellipse Width="3.4" Height="3.4" Fill="{StaticResource MutedTextBrush}" Margin="0,1.4"/>
+            </StackPanel>
+            <Button.ContextMenu>
+              <ContextMenu>
+                <MenuItem Header="Open Terminal" Command="{Binding PlacementTarget.Tag.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="Open Folder" Command="{Binding PlacementTarget.Tag.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="Open in IDE" Command="{Binding PlacementTarget.Tag.OpenIdeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="Copy Path" Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
+        </Grid>
+      </Border>
+    </Grid>
+  </Border>
+</UserControl>
