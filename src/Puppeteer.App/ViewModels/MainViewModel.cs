@@ -67,7 +67,10 @@ public sealed class MainViewModel:ObservableObject
   _viewMode=await _repository.GetSettingAsync("ViewMode")??_viewMode;Raise(nameof(ViewMode));
   _sortMode=await _repository.GetSettingAsync("SortMode")??_sortMode;Raise(nameof(SortMode));
   _currentPage=await _repository.GetSettingAsync("LastPage")??_currentPage;Raise(nameof(CurrentPage));
-  Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();}
+  Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();}
+ // Projects indexed before categories existed carry a null category; fill in what the offline path
+ // heuristic can decide so filters are useful immediately, without waiting on a rescan or the LLM.
+ private async Task BackfillCategoriesAsync(){for(var i=0;i<_allProjects.Count;i++){var p=_allProjects[i];if(!string.IsNullOrWhiteSpace(p.Category))continue;var category=ProjectCategoryRules.FromPath(p.Path);if(category is null)continue;_allProjects[i]=p with{Category=category};await _repository.SetProjectCategoryAsync(p.Id,category);}}
  private Task SaveGroqKeyAsync()=>_repository.SetSettingAsync("GroqApiKey",_groqApiKey.Trim());
  private async Task ClassifyUncategorizedAsync()
  {
