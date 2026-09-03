@@ -20,6 +20,7 @@
   <conv:MoreCountConverter x:Key="MoreCount"/>
   <conv:ProjectTypeConverter x:Key="ProjectType"/>
   <conv:PinnedVisibilityConverter x:Key="Pinned"/>
+  <conv:ActiveFolderBrushConverter x:Key="ActiveFolder"/>
   <conv:ToastMarginConverter x:Key="ToastMargin"/>
  </ResourceDictionary></Application.Resources>
 </Application>

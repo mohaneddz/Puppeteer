@@ -242,6 +242,12 @@
                     <Button Style="{StaticResource CardLinkButton}" HorizontalContentAlignment="Left" Padding="3,3"
                             Command="{Binding DataContext.SelectFolderCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
                             CommandParameter="{Binding}" ToolTip="{Binding Path}">
+                      <Button.Background>
+                        <MultiBinding Converter="{StaticResource ActiveFolder}">
+                          <Binding Path="Path"/>
+                          <Binding Path="DataContext.SelectedFolder" RelativeSource="{RelativeSource AncestorType=TreeView}"/>
+                        </MultiBinding>
+                      </Button.Background>
                       <StackPanel Orientation="Horizontal">
                         <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolder}" Width="13" Height="13" Stroke="{StaticResource MutedTextBrush}" VerticalAlignment="Center"/>
                         <TextBlock Text="{Binding Name}" Margin="7,0,0,0" VerticalAlignment="Center" FontSize="12.5" TextTrimming="CharacterEllipsis"/>

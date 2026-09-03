@@ -164,6 +164,18 @@ public sealed class PinnedVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>Highlights the folder-tree row whose path matches the selected folder.</summary>
+public sealed class ActiveFolderBrushConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type t, object? parameter, CultureInfo c)
+    {
+        if (values is [string nodePath, Puppeteer.App.ViewModels.FolderNode selected] && string.Equals(nodePath, selected.Path, StringComparison.OrdinalIgnoreCase))
+            return (Brush)Application.Current.Resources["AccentSoftBrush"];
+        return Brushes.Transparent;
+    }
+    public object[] ConvertBack(object? value, Type[] t, object? parameter, CultureInfo c) => throw new NotSupportedException();
+}
+
 /// <summary>Yields a project's product type ("Desktop", "Website"…) from its detected stack.</summary>
 public sealed class ProjectTypeConverter : IValueConverter
 {
