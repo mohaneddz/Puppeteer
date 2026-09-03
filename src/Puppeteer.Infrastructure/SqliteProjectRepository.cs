@@ -146,6 +146,14 @@ public sealed class SqliteProjectRepository : IProjectRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenAsync(cancellationToken);
+        var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET LastOpenedAt=$opened WHERE Id=$id";
+        command.Parameters.AddWithValue("$opened", openedAt.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
     public async Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default)
     {
         await using var connection = await OpenAsync(cancellationToken);

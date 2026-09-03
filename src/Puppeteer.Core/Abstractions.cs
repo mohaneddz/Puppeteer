@@ -20,6 +20,7 @@ public interface IProjectRepository
     Task UpsertProjectsAsync(IEnumerable<Project> projects, CancellationToken cancellationToken = default);
     Task SetProjectIconAsync(Guid projectId, string? iconPath, CancellationToken cancellationToken = default);
     Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default);
+    Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default);
     Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default);
     Task SetSettingAsync(string key, string? value, CancellationToken cancellationToken = default);
 }
