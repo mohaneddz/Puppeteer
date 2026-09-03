@@ -398,7 +398,26 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
-              <TextBlock Text="Running" Style="{StaticResource PageTitle}" Margin="0,0,0,18"/>
+              <Grid Margin="0,0,0,18">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="Running" Style="{StaticResource PageTitle}"/>
+                  <TextBlock VerticalAlignment="Center" Margin="14,8,0,0" Style="{StaticResource MutedText}">
+                    <Run Text="{Binding RunningCount, Mode=OneWay}"/><Run Text=" active"/>
+                  </TextBlock>
+                </StackPanel>
+                <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding StopAllCommand}" Padding="13,8">
+                  <StackPanel Orientation="Horizontal">
+                    <Path Data="{StaticResource IconStop}" Width="12" Height="12" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
+                    <TextBlock Text="Stop all" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Button>
+              </Grid>
+              <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="320"
+                          Visibility="{Binding Sessions.Count, Converter={StaticResource CountVis}, ConverterParameter=Inverse}">
+                <Path Style="{StaticResource IconPath}" Data="{StaticResource IconActivity}" Width="28" Height="28" Stroke="{StaticResource FaintBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Nothing running" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+                <TextBlock Text="Open a terminal on a project and it will show up here." Style="{StaticResource MutedText}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,6,0,0"/>
+              </StackPanel>
               <ListBox Grid.Row="1" Style="{StaticResource BareList}" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}"
                        ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
