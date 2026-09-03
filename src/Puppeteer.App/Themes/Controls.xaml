@@ -130,6 +130,36 @@
     </Setter>
   </Style>
 
+  <!-- CheckBox -->
+  <Style TargetType="CheckBox">
+    <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+    <Setter Property="FontSize" Value="13"/>
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="CheckBox">
+          <StackPanel Orientation="Horizontal" Background="Transparent">
+            <Border x:Name="Box" Width="18" Height="18" CornerRadius="5" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" VerticalAlignment="Center">
+              <Path x:Name="Check" Data="M3,8 L7,12 L14,4" Stroke="{StaticResource WindowBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Stretch="Uniform" Margin="3" Visibility="Collapsed"/>
+            </Border>
+            <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Box" Property="Background" Value="{StaticResource AccentBrush}"/>
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+              <Setter TargetName="Check" Property="Visibility" Value="Visible"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ToolTip -->
   <Style TargetType="ToolTip">
     <Setter Property="Background" Value="{StaticResource ElevatedBrush}"/>

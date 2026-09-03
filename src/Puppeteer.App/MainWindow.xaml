@@ -462,10 +462,17 @@
                 <TextBox Text="{Binding GroqApiKey, UpdateSourceTrigger=LostFocus}" Width="440" HorizontalAlignment="Left" FontFamily="{StaticResource MonoFont}"/>
                 <TextBlock Text="Using the key from .env" Style="{StaticResource MutedText}" FontSize="11.5" Foreground="{StaticResource SuccessBrush}" Margin="2,6,0,0"
                            Visibility="{Binding UsingEnvGroqKey, Converter={StaticResource BoolVis}}"/>
+                <CheckBox Content="Automatically categorize new projects" IsChecked="{Binding AutoClassify}" Margin="0,14,0,0"/>
 
                 <TextBlock Text="Detection" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
                 <TextBlock Text="Tauri · .NET/WPF · Flutter · Next.js · Vite · Node.js · Qt · Android · Rust · Python · Godot"
                            Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
+
+                <TextBlock Text="About" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap">
+                  <Run Text="Puppeteer"/> <Run Text="{Binding Version, Mode=OneWay}"/> <LineBreak/>
+                  <Run Text="A focused Windows project hub — WPF and .NET 10."/>
+                </TextBlock>
               </StackPanel>
             </ScrollViewer>
 
@@ -560,6 +567,10 @@
                             Command="{Binding ToggleTerminalMaxCommand}">
                       <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="15" Height="15"
                             Stroke="{Binding TerminalMaximized, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Copy output"
+                            Command="{Binding CopyOutputCommand}">
+                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="15" Height="15"/>
                     </Button>
                     <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Clear output"
                             Command="{Binding ClearOutputCommand}">
