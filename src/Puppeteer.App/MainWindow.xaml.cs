@@ -190,10 +190,24 @@ public partial class MainWindow : Window
 
     private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key != Key.Enter) return;
-        e.Handled = true;
-        if (sender is FrameworkElement { DataContext: TerminalSessionViewModel session } && session.SendCommand.CanExecute(null))
-            session.SendCommand.Execute(null);
+        if (sender is not TextBox box || box.DataContext is not TerminalSessionViewModel session) return;
+        switch (e.Key)
+        {
+            case Key.Enter:
+                if (session.SendCommand.CanExecute(null)) session.SendCommand.Execute(null);
+                e.Handled = true;
+                break;
+            case Key.Up:
+                session.HistoryPrevious();
+                box.CaretIndex = box.Text.Length;
+                e.Handled = true;
+                break;
+            case Key.Down:
+                session.HistoryNext();
+                box.CaretIndex = box.Text.Length;
+                e.Handled = true;
+                break;
+        }
     }
 
     // Auto-follow the tail of a terminal pane's output unless the user has scrolled up to read back.

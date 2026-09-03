@@ -53,12 +53,32 @@ public sealed class TerminalSessionViewModel : ObservableObject
         while (Output.Count > MaxOutputLines) Output.RemoveAt(0);
     }
 
+    private readonly List<string> _history = [];
+    private int _historyIndex;
+
     public async Task SendAsync()
     {
         var text = Input;
         if (string.IsNullOrEmpty(text) || Session is null || !Running) return;
         Input = "";
+        if (_history.Count == 0 || _history[^1] != text) _history.Add(text);
+        _historyIndex = _history.Count;
         Append($"$ {text}");
         await Session.WriteAsync(text);
+    }
+
+    public void HistoryPrevious()
+    {
+        if (_history.Count == 0) return;
+        _historyIndex = Math.Max(0, _historyIndex - 1);
+        Input = _history[_historyIndex];
+    }
+
+    public void HistoryNext()
+    {
+        if (_history.Count == 0) return;
+        _historyIndex++;
+        if (_historyIndex >= _history.Count) { _historyIndex = _history.Count; Input = ""; }
+        else Input = _history[_historyIndex];
     }
 }
