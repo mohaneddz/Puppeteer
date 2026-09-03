@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore Puppeteer.sln
+      - name: Build
+        run: dotnet build Puppeteer.sln --configuration Release --no-restore
+      - name: Test
+        run: dotnet test Puppeteer.sln --configuration Release --no-build --verbosity quiet
