@@ -61,10 +61,20 @@
                 <TextBlock Text="exited" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="10.5" Foreground="{StaticResource FaintBrush}"
                            Visibility="{Binding Running, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
               </StackPanel>
-              <Button Style="{StaticResource IconButton}" Width="18" Height="18" HorizontalAlignment="Right" ToolTip="Close"
-                      Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
-                <Path Data="{StaticResource IconClose}" Width="9" Height="9" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
-              </Button>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Stop process" Command="{Binding StopCommand}"
+                        Visibility="{Binding Running, Converter={StaticResource BoolVis}}">
+                  <Path Data="{StaticResource IconStop}" Width="10" Height="10" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
+                </Button>
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Restart"
+                        Command="{Binding DataContext.RestartSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="11" Height="11"/>
+                </Button>
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Close"
+                        Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                  <Path Data="{StaticResource IconClose}" Width="9" Height="9" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                </Button>
+              </StackPanel>
             </Grid>
           </Border>
           <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,10" ScrollChanged="TerminalOutput_ScrollChanged">

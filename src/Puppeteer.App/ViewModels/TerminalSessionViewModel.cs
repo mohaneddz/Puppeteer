@@ -26,6 +26,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public string Input { get => _input; set => Set(ref _input, value); }
 
     public RelayCommand SendCommand { get; }
+    public RelayCommand StopCommand { get; }
 
     public TerminalSessionViewModel(ITerminalSession session, Brush? accent = null)
     {
@@ -37,6 +38,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
         Accent = accent ?? (Brush)Application.Current.Resources["SuccessBrush"];
         _running = session.State == TerminalSessionState.Running;
         SendCommand = new(_ => _ = SendAsync(), _ => Running);
+        StopCommand = new(_ => { try { Session?.StopAsync(); } catch { } }, _ => Running);
         session.OutputReceived += (_, line) => Application.Current.Dispatcher.BeginInvoke(() => Append(line));
         session.Exited += (_, _) => Application.Current.Dispatcher.BeginInvoke(() =>
         {

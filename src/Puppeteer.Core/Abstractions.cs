@@ -59,6 +59,7 @@ public interface ITerminalSession
     string ProjectPath { get; }
     string Shell { get; }
     string Name { get; }
+    string? Command { get; }
     DateTimeOffset StartedAt { get; }
     TerminalSessionState State { get; }
     event EventHandler<string>? OutputReceived;

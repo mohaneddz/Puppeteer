@@ -25,6 +25,7 @@ public sealed class ProcessTerminalSession(TerminalOptions options) : ITerminalS
     public string ProjectPath => options.ProjectPath;
     public string Shell => options.Shell;
     public string Name => options.Name ?? "terminal";
+    public string? Command => options.Command;
     public DateTimeOffset StartedAt { get; private set; }
     public TerminalSessionState State { get; private set; }
     public event EventHandler<string>? OutputReceived;
