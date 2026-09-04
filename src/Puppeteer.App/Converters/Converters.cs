@@ -268,3 +268,18 @@ public sealed class ProjectBreadcrumbConverter : IValueConverter
         value is Project { Hierarchy.Count: > 0 } p ? string.Join("  ›  ", p.Hierarchy) : "root";
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
+
+/// <summary>Colours a terminal line by what it is. Painting the whole buffer one shade of green made
+/// the echoed command indistinguishable from the output it produced.</summary>
+public sealed class TerminalLineBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var line = value as string ?? "";
+        if (line.StartsWith("$ ", StringComparison.Ordinal)) return Brush("AccentBrush");
+        if (line.StartsWith('[') && line.EndsWith(']')) return Brush("FaintBrush");
+        return Brush("TextDimBrush");
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+    private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+}

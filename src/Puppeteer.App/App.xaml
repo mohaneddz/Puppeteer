@@ -24,5 +24,6 @@
   <conv:ToastMarginConverter x:Key="ToastMargin"/>
   <conv:PanelToggleIconConverter x:Key="PanelToggleIcon"/>
   <conv:ProjectBreadcrumbConverter x:Key="Breadcrumb"/>
+  <conv:TerminalLineBrushConverter x:Key="TerminalLine"/>
  </ResourceDictionary></Application.Resources>
 </Application>

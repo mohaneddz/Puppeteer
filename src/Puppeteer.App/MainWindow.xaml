@@ -103,20 +103,39 @@
               </StackPanel>
             </Grid>
           </Border>
-          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="14,10" ScrollChanged="TerminalOutput_ScrollChanged">
-            <StackPanel>
-              <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12.5" Margin="0,0,0,4">
-                <Run Text="{Binding Name, Mode=OneWay}" Foreground="{StaticResource TerminalGreenBrush}" FontWeight="Bold"/><Run Text=":" Foreground="{StaticResource MutedTextBrush}"/><Run Text="{Binding ProjectPath, Mode=OneWay}" Foreground="{StaticResource TerminalCyanBrush}"/>
-              </TextBlock>
-              <ItemsControl ItemsSource="{Binding Output}">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate>
-                    <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" Foreground="{StaticResource TerminalGreenBrush}" TextWrapping="Wrap"/>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </StackPanel>
-          </ScrollViewer>
+          <!-- The session banner sits outside the scrolled region so the output below it can be a
+               plain virtualizing list. Wrapping the output in a StackPanel (as it was) hands the
+               panel infinite height, which silently defeats virtualization and realizes a TextBlock
+               for every one of the 2000 buffered lines. -->
+          <Grid Grid.Row="1">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12.5" Margin="14,10,14,2" TextTrimming="CharacterEllipsis">
+              <Run Text="{Binding Name, Mode=OneWay}" Foreground="{StaticResource TerminalGreenBrush}" FontWeight="Bold"/><Run Text=":" Foreground="{StaticResource MutedTextBrush}"/><Run Text="{Binding ProjectPath, Mode=OneWay}" Foreground="{StaticResource TerminalCyanBrush}"/>
+            </TextBlock>
+            <ItemsControl Grid.Row="1" ItemsSource="{Binding Output}"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
+              <ItemsControl.Template>
+                <ControlTemplate TargetType="ItemsControl">
+                  <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" Padding="14,0,14,10"
+                                ScrollChanged="TerminalOutput_ScrollChanged">
+                    <ItemsPresenter/>
+                  </ScrollViewer>
+                </ControlTemplate>
+              </ItemsControl.Template>
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><VirtualizingStackPanel/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding}" FontFamily="{StaticResource MonoFont}" FontSize="12.5" TextWrapping="Wrap"
+                             Foreground="{Binding Converter={StaticResource TerminalLine}}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Grid>
           <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="14,7">
             <Grid>
               <Grid.ColumnDefinitions>
