@@ -269,6 +269,9 @@
               <controls:SidebarItem Icon="{StaticResource IconEyeOff}" Label="Hidden"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Hidden}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Hidden"/>
+              <controls:SidebarItem Icon="{StaticResource IconDoc}" Label="Docs"
+                                    IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Docs}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="Docs"/>
               <controls:SidebarItem Icon="{StaticResource IconActivity}" Label="Running" ShowDot="True" Badge="{Binding RunningBadge}"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Running}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Running"/>
@@ -391,6 +394,10 @@
                   <StackPanel>
                     <TextBlock Text="Category" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
                     <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Width="150" Height="36"/>
+                  </StackPanel>
+                  <StackPanel Margin="14,0,0,0">
+                    <TextBlock Text="Show" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding SpecialFilters}" SelectedItem="{Binding SelectedSpecial}" Width="150" Height="36"/>
                   </StackPanel>
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
@@ -537,6 +544,9 @@
                 </ListBox.ItemTemplate>
               </ListBox>
             </Grid>
+
+            <!-- Docs page -->
+            <controls:DocsPage Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Docs}"/>
 
             <!-- Settings page -->
             <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Settings}">
@@ -687,6 +697,8 @@
                 <TextBlock Text="Using the key from .env" Style="{StaticResource MutedText}" FontSize="11.5" Foreground="{StaticResource SuccessBrush}" Margin="2,6,0,0"
                            Visibility="{Binding UsingEnvGroqKey, Converter={StaticResource BoolVis}}"/>
                 <CheckBox Content="Automatically categorize new projects" IsChecked="{Binding AutoClassify}" Margin="0,14,0,0"/>
+
+                <controls:DocsSettings/>
 
                 <TextBlock Text="Detection" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
                 <TextBlock Text="Tauri · .NET/WPF · Flutter · Next.js · Vite · Node.js · Qt · Android · Rust · Python · Godot"

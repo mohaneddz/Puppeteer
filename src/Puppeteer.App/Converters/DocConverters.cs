@@ -1,0 +1,62 @@
+using System.Globalization;
+using System.Windows;
+using System.Windows.Data;
+using System.Windows.Media;
+
+namespace Puppeteer.App.Converters;
+
+/// <summary>Colours a doc's lifecycle label. Undocumented and unlabelled projects stay grey rather
+/// than borrowing an alarming colour — not having written the doc yet is not a problem with the code.</summary>
+public sealed class DocStatusBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => Brush((value as string) switch
+    {
+        "Active" => "SuccessBrush",
+        "Paused" => "InfoBrush",
+        "Shipped" => "AccentBrush",
+        "Abandoned" => "DangerBrush",
+        "Archived" or "Unlabelled" => "MutedTextBrush",
+        _ => "FaintBrush",
+    });
+
+    private static Brush Brush(string key) => Application.Current?.TryFindResource(key) as Brush ?? Brushes.Gray;
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>Shows an element only while a doc needs a writeup — drift the doc itself can fix, as
+/// opposed to the repo merely being dirty. Pass <c>Inverse</c> to flip it.</summary>
+public sealed class DriftVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var needs = value is true;
+        if (string.Equals(parameter as string, "Inverse", StringComparison.OrdinalIgnoreCase)) needs = !needs;
+        return needs ? Visibility.Visible : Visibility.Collapsed;
+    }
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>Formats a captured snapshot as one scannable line for the history list.</summary>
+public sealed class SnapshotLineConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is not Core.ProjectStateSnapshot snapshot) return "";
+        var parts = new List<string>();
+        if (snapshot.Branch is { Length: > 0 } branch) parts.Add(branch);
+        if (snapshot.Head is { Length: > 0 } head) parts.Add(head);
+        if (snapshot.ModifiedFileCount > 0) parts.Add($"{snapshot.ModifiedFileCount} dirty");
+        if (snapshot.Ahead > 0) parts.Add($"↑{snapshot.Ahead}");
+        if (snapshot.Behind > 0) parts.Add($"↓{snapshot.Behind}");
+        if (parts.Count == 0) parts.Add("clean");
+        return string.Join(" · ", parts);
+    }
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+public sealed class LocalDateConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is DateTimeOffset when ? when.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "";
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}

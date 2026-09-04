@@ -1,0 +1,33 @@
+<UserControl x:Class="Puppeteer.App.Controls.DocsSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <TextBlock Text="Project docs" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
+    <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,10"
+               Text="A folder holding one markdown doc per project — what it is, what works, what is broken, what comes next. Puppeteer reads what is already there and matches each doc to a project. Editing the files outside Puppeteer is expected: it reloads when they change and refuses to save over an edit it has not seen."/>
+    <Border Style="{StaticResource SettingRow}">
+      <StackPanel>
+        <TextBlock Text="Docs folder" Style="{StaticResource SettingLabel}"/>
+        <TextBlock Text="For example D:\Programming\Resources\Projects. Leave blank to turn the Docs page off." Style="{StaticResource SettingHint}"/>
+        <Grid Margin="0,10,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBox Text="{Binding DocsFolder, UpdateSourceTrigger=LostFocus}" FontFamily="{StaticResource MonoFont}"/>
+          <Button Grid.Column="1" Margin="8,0,0,0" Padding="12,9" Content="Browse" Command="{Binding ChooseDocsFolderCommand}"/>
+          <Button Grid.Column="2" Margin="6,0,0,0" Padding="12,9" Content="Clear" Command="{Binding ClearDocsFolderCommand}"/>
+        </Grid>
+        <TextBlock Text="{Binding DocsSummary}" Style="{StaticResource SettingHint}" Margin="2,10,0,0"/>
+      </StackPanel>
+    </Border>
+    <Border Style="{StaticResource SettingRow}">
+      <Grid>
+        <StackPanel Margin="0,0,20,0">
+          <TextBlock Text="Keep a state history" Style="{StaticResource SettingLabel}"/>
+          <TextBlock Text="Records each project's branch, head commit and uncommitted count after every git refresh, so you can see when a project last moved. A row is only kept when something actually changed." Style="{StaticResource SettingHint}"/>
+        </StackPanel>
+        <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding DocsAutoSnapshot}"/>
+      </Grid>
+    </Border>
+  </StackPanel>
+</UserControl>
