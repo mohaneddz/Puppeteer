@@ -9,8 +9,10 @@ namespace Puppeteer.App.Controls;
 /// <summary>
 /// A wrap panel that only realizes the item containers currently in view. WPF ships a virtualizing
 /// stack panel but no virtualizing wrap panel, so a grid of hundreds of project cards would realize
-/// every card at once and lag badly. This assumes a uniform cell size (project cards are given a
-/// fixed width/height in grid mode) which keeps the layout math — and the scrolling — cheap.
+/// every card at once and lag badly. Cells are uniform, which keeps the layout math — and the
+/// scrolling — cheap: <see cref="ItemWidth"/> is the <i>minimum</i> cell width, and whatever is left
+/// over after the column count is fixed gets shared out across the columns so the grid fills the
+/// content area instead of leaving a ragged strip of dead space on the right.
 /// </summary>
 public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 {
@@ -26,6 +28,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     public double ItemHeight { get => (double)GetValue(ItemHeightProperty); set => SetValue(ItemHeightProperty, value); }
 
     private Size _cell = new(316, 182);
+    private int _columns = 1;
     private Size _extent;
     private Size _viewport;
     private Point _offset;
@@ -34,11 +37,20 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     public bool CanHorizontallyScroll { get; set; }
     public bool CanVerticallyScroll { get; set; }
 
-    private int Columns => Math.Max(1, (int)(_viewport.Width / _cell.Width));
+    /// <summary>Fixes the column count and cell size for a given viewport, and the extent that follows
+    /// from them. Every layout path goes through here so Measure and Arrange can never disagree about
+    /// how many columns there are.</summary>
+    private void ResolveCells(Size viewport, int itemCount)
+    {
+        var minimum = Math.Max(1, ItemWidth);
+        _columns = viewport.Width > 0 ? Math.Max(1, (int)(viewport.Width / minimum)) : 1;
+        _cell = new Size(viewport.Width > 0 ? viewport.Width / _columns : minimum, ItemHeight);
+        var rows = (int)Math.Ceiling((double)itemCount / _columns);
+        _extent = new Size(viewport.Width, rows * _cell.Height);
+    }
 
     protected override Size MeasureOverride(Size availableSize)
     {
-        _cell = new Size(ItemWidth, ItemHeight);
         var owner = ItemsControl.GetItemsOwner(this);
         var itemCount = owner?.Items.Count ?? 0;
         _ = InternalChildren; // forces the generator to initialize
@@ -83,16 +95,13 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         if (Math.Abs(finalSize.Width - _viewport.Width) > 0.5 || Math.Abs(finalSize.Height - _viewport.Height) > 0.5)
         {
             _viewport = finalSize;
-            var itemCount = ItemsControl.GetItemsOwner(this)?.Items.Count ?? 0;
-            var cols = Math.Max(1, (int)(_viewport.Width / _cell.Width));
-            var rows = (int)Math.Ceiling((double)itemCount / cols);
-            _extent = new Size(_viewport.Width, rows * _cell.Height);
+            ResolveCells(_viewport, ItemsControl.GetItemsOwner(this)?.Items.Count ?? 0);
             ScrollOwner?.InvalidateScrollInfo();
             InvalidateMeasure();
         }
 
         var owner = ItemsControl.GetItemsOwner(this);
-        var columns = Columns;
+        var columns = _columns;
         foreach (UIElement child in InternalChildren)
         {
             var itemIndex = owner?.ItemContainerGenerator.IndexFromContainer(child) ?? -1;
@@ -110,7 +119,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     private void GetVisibleRange(int itemCount, out int firstIndex, out int lastIndex)
     {
         if (itemCount == 0) { firstIndex = 0; lastIndex = -1; return; }
-        var columns = Columns;
+        var columns = _columns;
         var firstRow = Math.Max(0, (int)(_offset.Y / _cell.Height));
         var rowsInView = (int)Math.Ceiling(_viewport.Height / _cell.Height) + 1;
         firstIndex = firstRow * columns;
@@ -143,11 +152,10 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var viewport = new Size(
             double.IsInfinity(availableSize.Width) ? _viewport.Width : availableSize.Width,
             double.IsInfinity(availableSize.Height) ? _viewport.Height : availableSize.Height);
-        var columns = Math.Max(1, (int)(viewport.Width / _cell.Width));
-        var rows = (int)Math.Ceiling((double)itemCount / columns);
-        var extent = new Size(viewport.Width, rows * _cell.Height);
+        var previousExtent = _extent;
+        ResolveCells(viewport, itemCount);
 
-        if (extent != _extent) { _extent = extent; ScrollOwner?.InvalidateScrollInfo(); }
+        if (_extent != previousExtent) ScrollOwner?.InvalidateScrollInfo();
         if (viewport != _viewport) { _viewport = viewport; ScrollOwner?.InvalidateScrollInfo(); }
 
         var maxY = Math.Max(0, _extent.Height - _viewport.Height);
@@ -208,7 +216,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
         var owner = ItemsControl.GetItemsOwner(this);
         var itemIndex = owner?.ItemContainerGenerator.IndexFromContainer(child) ?? -1;
         if (itemIndex < 0) return rectangle;
-        var row = itemIndex / Columns;
+        var row = itemIndex / _columns;
         var top = row * _cell.Height;
         var bottom = top + _cell.Height;
         if (top < _offset.Y) SetVerticalOffset(top);

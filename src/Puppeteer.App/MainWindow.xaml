@@ -380,7 +380,7 @@
                 </StackPanel>
               </Grid>
               <ListBox Grid.Row="2" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}"
-                       ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Padding="0,0,20,16"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Padding="0,0,12,16"
                        VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                        VirtualizingPanel.ScrollUnit="Pixel">
                 <ListBox.Style>
