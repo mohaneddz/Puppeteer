@@ -1,8 +1,11 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
 using Puppeteer.App.ViewModels;
 
 namespace Puppeteer.App;
@@ -23,14 +26,62 @@ public partial class MainWindow : Window
         ApplyTerminalLayout();
         Loaded += async (_, _) => await RestoreLayoutAsync();
         Closing += (_, _) => SaveLayout();
+        StateChanged += (_, _) => UpdateMaximizeVisual();
         if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 } capturePath)
             Loaded += (_, _) => CaptureAndExit(capturePath);
     }
 
+    // A borderless window (WindowStyle=None + WindowChrome) maximizes to the full monitor by default,
+    // spilling under the taskbar and clipping the edges — which is why the status bar and card rows
+    // fell off-screen. Constrain the maximized bounds to the monitor work area.
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        base.OnSourceInitialized(e);
+        ((HwndSource)PresentationSource.FromVisual(this)!).AddHook(WindowProc);
+        UpdateMaximizeVisual();
+    }
+
+    private void UpdateMaximizeVisual()
+    {
+        var maximized = WindowState == WindowState.Maximized;
+        MaximizeIcon.Data = (Geometry)FindResource(maximized ? "IconWindowRestore" : "IconWindowMaximize");
+        MaximizeButton.ToolTip = maximized ? "Restore" : "Maximize";
+    }
+
+    private const int WM_GETMINMAXINFO = 0x0024;
+
+    private static IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
+        var monitor = MonitorFromWindow(hwnd, 0x2 /* MONITOR_DEFAULTTONEAREST */);
+        if (monitor != IntPtr.Zero)
+        {
+            var info = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
+            GetMonitorInfo(monitor, ref info);
+            var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
+            mmi.ptMaxPosition.X = info.rcWork.Left - info.rcMonitor.Left;
+            mmi.ptMaxPosition.Y = info.rcWork.Top - info.rcMonitor.Top;
+            mmi.ptMaxSize.X = info.rcWork.Right - info.rcWork.Left;
+            mmi.ptMaxSize.Y = info.rcWork.Bottom - info.rcWork.Top;
+            Marshal.StructureToPtr(mmi, lParam, true);
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+    [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+
+    [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
+    [StructLayout(LayoutKind.Sequential)] private struct Point { public int X, Y; }
+    [StructLayout(LayoutKind.Sequential)] private struct MinMaxInfo { public Point ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize; }
+    [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int cbSize; public Rect rcMonitor, rcWork; public int dwFlags; }
+
     private async Task RestoreLayoutAsync()
     {
-        if (double.TryParse(await Vm.GetPrefAsync("WindowWidth"), out var w) && w > 400) Width = w;
-        if (double.TryParse(await Vm.GetPrefAsync("WindowHeight"), out var h) && h > 300) Height = h;
+        var work = SystemParameters.WorkArea;
+        if (double.TryParse(await Vm.GetPrefAsync("WindowWidth"), out var w) && w > 400) Width = Math.Min(w, work.Width);
+        if (double.TryParse(await Vm.GetPrefAsync("WindowHeight"), out var h) && h > 300) Height = Math.Min(h, work.Height);
         if (double.TryParse(await Vm.GetPrefAsync("SidebarWidth"), out var sw) && sw > 0) { _sidebarWidth = sw; SidebarColumn.Width = new GridLength(sw); }
         if (double.TryParse(await Vm.GetPrefAsync("DetailsWidth"), out var dw) && dw > 0) { _detailsWidth = dw; DetailsColumn.Width = new GridLength(dw); }
         if (double.TryParse(await Vm.GetPrefAsync("TerminalHeight"), out var th) && th > 80) _terminalHeight = th;

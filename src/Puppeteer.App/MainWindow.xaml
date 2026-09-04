@@ -44,6 +44,32 @@
       <Setter Property="ResizeBehavior" Value="PreviousAndNext"/>
     </Style>
 
+    <!-- Row splitter (terminal resize handle): a thin line that only reads as a bar on hover, not a
+         permanent slab of color sitting on top of the terminal panel. -->
+    <Style x:Key="RowSplitter" TargetType="GridSplitter">
+      <Setter Property="Height" Value="6"/>
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="VerticalAlignment" Value="Stretch"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Cursor" Value="SizeNS"/>
+      <Setter Property="ResizeBehavior" Value="PreviousAndNext"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="GridSplitter">
+            <Grid Background="Transparent">
+              <Border x:Name="Line" Height="1" VerticalAlignment="Center" Background="{StaticResource BorderStrongBrush}"/>
+            </Grid>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Line" Property="Background" Value="{StaticResource AccentBrush}"/>
+                <Setter TargetName="Line" Property="Height" Value="2"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- One terminal pane: prompt + output + input. Data context is a TerminalSessionViewModel. -->
     <DataTemplate x:Key="TerminalPane" DataType="{x:Type vm:TerminalSessionViewModel}">
       <Border BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Margin="4" Background="{StaticResource TerminalBgBrush}">
@@ -113,6 +139,7 @@
       <Grid.RowDefinitions>
         <RowDefinition Height="56"/>
         <RowDefinition Height="*"/>
+        <RowDefinition Height="26"/>
       </Grid.RowDefinitions>
 
       <!-- ============ FULL-WIDTH TITLE BAR ============ -->
@@ -133,7 +160,8 @@
           <!-- Sidebar toggle -->
           <Button Grid.Column="1" Style="{StaticResource IconButton}" Width="36" Height="36" Margin="8,0,0,0" ToolTip="Toggle sidebar"
                   Command="{Binding ToggleSidebarCommand}">
-            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconList}" Width="17" Height="17"/>
+            <Path Style="{StaticResource IconPath}" Width="15" Height="15"
+                  Data="{Binding SidebarCollapsed, Converter={StaticResource PanelToggleIcon}, ConverterParameter=Left}"/>
           </Button>
           <!-- Search -->
           <Border Grid.Column="2" MaxWidth="480" HorizontalAlignment="Left" Height="38" Margin="16,0,0,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Width="480">
@@ -168,14 +196,15 @@
             </Button>
             <Button Style="{StaticResource IconButton}" Width="38" Height="38" Margin="4,0,0,0" ToolTip="Toggle details panel"
                     Command="{Binding ToggleDetailsCommand}">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="16" Height="16"/>
+              <Path Style="{StaticResource IconPath}" Width="15" Height="15"
+                    Data="{Binding DetailsCollapsed, Converter={StaticResource PanelToggleIcon}, ConverterParameter=Right}"/>
             </Button>
             <Border Width="1" Height="22" Background="{StaticResource BorderBrush}" Margin="10,0,4,0"/>
             <Button Style="{StaticResource CaptionButton}" Click="Minimize_Click" ToolTip="Minimize">
               <Rectangle Width="11" Height="1.4" Fill="{StaticResource MutedTextBrush}"/>
             </Button>
-            <Button Style="{StaticResource CaptionButton}" Click="Maximize_Click" ToolTip="Maximize">
-              <Rectangle Width="10" Height="10" Stroke="{StaticResource MutedTextBrush}" StrokeThickness="1.4" Fill="Transparent"/>
+            <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Click="Maximize_Click" ToolTip="Maximize">
+              <Path x:Name="MaximizeIcon" Data="{StaticResource IconWindowMaximize}" Stroke="{StaticResource MutedTextBrush}" StrokeThickness="1.4" Width="11" Height="11" Stretch="Uniform"/>
             </Button>
             <Button Style="{StaticResource CloseCaptionButton}" Click="Close_Click" ToolTip="Close">
               <Path Data="{StaticResource IconClose}" Stroke="{StaticResource TextDimBrush}" StrokeThickness="1.4" Width="12" Height="12" Stretch="Uniform"/>
@@ -288,14 +317,15 @@
 
           <!-- ===== PAGES ===== -->
           <Grid Grid.Row="0">
-            <!-- Projects page -->
-            <Grid Margin="26,20,26,0" Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Projects}">
+            <!-- Projects page. Right margin is 0 so the list (and its scrollbar) can bleed to the
+                 content edge; the header/filter rows carry their own right inset instead. -->
+            <Grid Margin="26,20,0,0" Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Projects}">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
-              <StackPanel Orientation="Horizontal">
+              <StackPanel Orientation="Horizontal" Margin="0,0,26,0">
                 <TextBlock Text="Projects" Style="{StaticResource PageTitle}"/>
                 <TextBlock VerticalAlignment="Center" Margin="14,8,0,0" Style="{StaticResource MutedText}">
                   <Run Text="{Binding Projects.Count, Mode=OneWay}"/><Run Text=" shown"/>
@@ -315,7 +345,7 @@
                 </Border>
               </StackPanel>
               <!-- Filter dropdowns + view toggle -->
-              <Grid Grid.Row="1" Margin="0,18,0,14">
+              <Grid Grid.Row="1" Margin="0,18,26,14">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
                   <StackPanel Margin="0,0,14,0">
                     <TextBlock Text="Type" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
@@ -348,7 +378,7 @@
                 </StackPanel>
               </Grid>
               <ListBox Grid.Row="2" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}"
-                       ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Padding="0,0,0,120"
+                       ScrollViewer.VerticalScrollBarVisibility="Auto" Margin="0,4,0,0" Padding="0,0,20,16"
                        VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
                        VirtualizingPanel.ScrollUnit="Pixel">
                 <ListBox.Style>
@@ -539,8 +569,7 @@
           </Grid>
 
           <!-- ===== TERMINAL RESIZE HANDLE ===== -->
-          <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                        Background="{StaticResource BorderStrongBrush}" Cursor="SizeNS" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+          <GridSplitter Grid.Row="1" Style="{StaticResource RowSplitter}" ResizeDirection="Rows"
                         DragCompleted="TerminalSplitter_DragCompleted"/>
 
           <!-- ===== TERMINAL ===== -->
@@ -666,6 +695,20 @@
           </Grid>
         </Border>
       </Grid>
+
+      <!-- ============ STATUS BAR ============ -->
+      <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+        <Grid Margin="14,0,10,0">
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource MutedText}" FontSize="11.5">
+            <Run Text="{Binding Projects.Count, Mode=OneWay}"/><Run Text=" projects"/>
+          </TextBlock>
+          <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Width="26" Height="26" ToolTip="Toggle terminal"
+                  Command="{Binding ToggleTerminalCommand}">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="13" Height="13"
+                  Stroke="{Binding TerminalOpen, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+          </Button>
+        </Grid>
+      </Border>
     </Grid>
   </Border>
 </Window>

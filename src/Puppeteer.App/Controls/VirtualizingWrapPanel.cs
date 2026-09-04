@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Puppeteer.App.Controls;
@@ -72,6 +73,24 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        // MeasureOverride's availableSize is only an estimate for Star-sized Grid rows/columns — the
+        // real allocation can come out different (e.g. collapsing the sidebar widens this column after
+        // the panel already measured against the old, narrower width). If we only ever synced _viewport
+        // during Measure, a mismatch here would stick: children stay realized for the wrong column
+        // count/row range, leaving unused width on the right and a dead gap at the bottom that no later
+        // Measure pass corrects (nothing tells WPF the size is wrong once _viewport "agrees" with itself).
+        // Arrange gets the authoritative size, so reconcile here and force a follow-up Measure.
+        if (Math.Abs(finalSize.Width - _viewport.Width) > 0.5 || Math.Abs(finalSize.Height - _viewport.Height) > 0.5)
+        {
+            _viewport = finalSize;
+            var itemCount = ItemsControl.GetItemsOwner(this)?.Items.Count ?? 0;
+            var cols = Math.Max(1, (int)(_viewport.Width / _cell.Width));
+            var rows = (int)Math.Ceiling((double)itemCount / cols);
+            _extent = new Size(_viewport.Width, rows * _cell.Height);
+            ScrollOwner?.InvalidateScrollInfo();
+            InvalidateMeasure();
+        }
+
         var owner = ItemsControl.GetItemsOwner(this);
         var columns = Columns;
         foreach (UIElement child in InternalChildren)
@@ -115,9 +134,15 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
     private void UpdateScrollInfo(Size availableSize, int itemCount)
     {
+        // ScrollContentPresenter measures an IScrollInfo panel with Infinity on the scrolled axis for
+        // some layout passes (e.g. right after a sibling row resizes the ListBox's available height).
+        // Falling back to 0 there stranded the panel at "viewport 0" for that pass, which realized only
+        // a row or two while the extent (driven by item count, not viewport) stayed full height —
+        // leaving a dead gap below the last rendered row until something forced a remeasure with a real
+        // size. Keep the last known-good viewport instead of collapsing it.
         var viewport = new Size(
-            double.IsInfinity(availableSize.Width) ? 0 : availableSize.Width,
-            double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height);
+            double.IsInfinity(availableSize.Width) ? _viewport.Width : availableSize.Width,
+            double.IsInfinity(availableSize.Height) ? _viewport.Height : availableSize.Height);
         var columns = Math.Max(1, (int)(viewport.Width / _cell.Width));
         var rows = (int)Math.Ceiling((double)itemCount / columns);
         var extent = new Size(viewport.Width, rows * _cell.Height);
@@ -148,7 +173,6 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
 
     public void SetHorizontalOffset(double offset) { }
 
-    // Scroll in small pixel steps so the wheel feels like a normal document, not a card-by-card jump.
     private const double LineStep = 20;
     private const double WheelStep = 60;
     public void LineUp() => SetVerticalOffset(_offset.Y - LineStep);
@@ -157,6 +181,19 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     public void PageDown() => SetVerticalOffset(_offset.Y + _viewport.Height);
     public void MouseWheelUp() => SetVerticalOffset(_offset.Y - WheelStep);
     public void MouseWheelDown() => SetVerticalOffset(_offset.Y + WheelStep);
+
+    // ScrollViewer normally reduces every wheel notch to one fixed-size MouseWheelUp/Down call, which
+    // feels like a snap on a precision trackpad that reports many small deltas per gesture. Following
+    // the raw delta instead gives continuous, proportional motion like scrolling a normal web page.
+    protected override void OnMouseWheel(MouseWheelEventArgs e)
+    {
+        if (!e.Handled)
+        {
+            SetVerticalOffset(_offset.Y - e.Delta);
+            e.Handled = true;
+        }
+        base.OnMouseWheel(e);
+    }
     public void LineLeft() { }
     public void LineRight() { }
     public void PageLeft() { }

@@ -95,6 +95,21 @@ public sealed class ViewStrokeConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>Picks a chevron pointing the direction a collapse toggle button will move its panel:
+/// for a "Left" side panel (sidebar), collapsed points right (reveal), expanded points left (hide);
+/// for a "Right" side panel (details), it's the mirror.</summary>
+public sealed class PanelToggleIconConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var collapsed = value is true;
+        var leftSide = string.Equals(parameter?.ToString(), "Left", StringComparison.OrdinalIgnoreCase);
+        var pointsRight = leftSide ? collapsed : !collapsed;
+        return Application.Current.Resources[pointsRight ? "IconChevronRight" : "IconChevronLeft"];
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
 /// <summary>Lifts the status toast above the terminal panel when it is open.</summary>
 public sealed class ToastMarginConverter : IValueConverter
 {
