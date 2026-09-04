@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
@@ -50,7 +51,7 @@ internal static class TechIcons
         return LoadSvg($"pack://application:,,,/Assets/icons/{file}.svg");
     }
 
-    private static ImageSource? LoadAny(string path)
+    public static ImageSource? LoadAny(string path)
         => path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase) ? LoadSvg(path) : LoadRaster(path);
 
     private static ImageSource? LoadRaster(string path)
@@ -72,28 +73,32 @@ internal static class TechIcons
         return image;
     }
 
-    private static ImageSource? LoadSvg(string packUri)
+    private static ImageSource? LoadSvg(string pathOrPackUri)
     {
-        if (Cache.TryGetValue(packUri, out var cached)) return cached;
+        if (Cache.TryGetValue(pathOrPackUri, out var cached)) return cached;
         ImageSource? image = null;
         try
         {
-            var info = Application.GetResourceStream(new Uri(packUri, UriKind.Absolute));
-            if (info is not null)
+            Stream? stream = null;
+            if (File.Exists(pathOrPackUri)) stream = File.OpenRead(pathOrPackUri);
+            else stream = Application.GetResourceStream(new Uri(pathOrPackUri, UriKind.Absolute))?.Stream;
+            if (stream is not null)
             {
                 var settings = new WpfDrawingSettings { IncludeRuntime = true, TextAsGeometry = true, OptimizePath = true };
                 using var reader = new FileSvgReader(settings);
-                using var stream = info.Stream;
+                using (stream)
+                {
                 var drawing = reader.Read(stream);
                 if (drawing is not null)
                 {
                     image = new DrawingImage(drawing);
                     image.Freeze();
                 }
+                }
             }
         }
         catch { }
-        Cache[packUri] = image;
+        Cache[pathOrPackUri] = image;
         return image;
     }
 }
@@ -102,6 +107,79 @@ public sealed class ProjectIconSourceConverter : IValueConverter
 {
     public object? Convert(object? value, Type t, object? parameter, CultureInfo c) =>
         value is Project p ? TechIcons.Resolve(p) : null;
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
+/// <summary>Uses a custom icon's dominant color as a subtle background gradient, while framework
+/// icons retain the established technology tint.</summary>
+public sealed class ProjectIconTintConverter : IValueConverter
+{
+    private static readonly Dictionary<string, Brush> CustomTintCache = new(StringComparer.OrdinalIgnoreCase);
+
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        if (value is not Project project || string.IsNullOrWhiteSpace(project.CustomIconPath)) return Tech.TintBrush((value as Project)?.PrimaryTechnology);
+        var path = project.CustomIconPath;
+        lock (CustomTintCache)
+        {
+            if (CustomTintCache.TryGetValue(path, out var cached)) return cached;
+            var color = TryReadDominantColor(path) ?? Tech.Color(project.PrimaryTechnology);
+            var gradient = new LinearGradientBrush(
+                Color.FromArgb(104, color.R, color.G, color.B),
+                Color.FromArgb(35, color.R, color.G, color.B), 45);
+            gradient.Freeze();
+            CustomTintCache[path] = gradient;
+            return gradient;
+        }
+    }
+
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+
+    private static Color? TryReadDominantColor(string path)
+    {
+        try
+        {
+            if (path.EndsWith(".svg", StringComparison.OrdinalIgnoreCase))
+            {
+                var match = Regex.Match(File.ReadAllText(path), "#[0-9a-fA-F]{6}");
+                return match.Success ? (Color)ColorConverter.ConvertFromString(match.Value) : null;
+            }
+
+            var source = new BitmapImage();
+            source.BeginInit();
+            source.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
+            source.DecodePixelWidth = 64;
+            source.DecodePixelHeight = 64;
+            source.CacheOption = BitmapCacheOption.OnLoad;
+            source.EndInit();
+            var bitmap = new FormatConvertedBitmap(source, PixelFormats.Bgra32, null, 0);
+            var pixels = new byte[bitmap.PixelWidth * bitmap.PixelHeight * 4];
+            bitmap.CopyPixels(pixels, bitmap.PixelWidth * 4, 0);
+            double red = 0, green = 0, blue = 0, weight = 0;
+            for (var i = 0; i < pixels.Length; i += 4)
+            {
+                var b = pixels[i]; var g = pixels[i + 1]; var r = pixels[i + 2]; var alpha = pixels[i + 3];
+                var saturation = Math.Max(r, Math.Max(g, b)) - Math.Min(r, Math.Min(g, b));
+                var pixelWeight = alpha / 255d * (0.15 + saturation / 255d);
+                red += r * pixelWeight; green += g * pixelWeight; blue += b * pixelWeight; weight += pixelWeight;
+            }
+            return weight > 0 ? Color.FromRgb((byte)(red / weight), (byte)(green / weight), (byte)(blue / weight)) : null;
+        }
+        catch { return null; }
+    }
+}
+
+public sealed class TechnologyIconSourceConverter : IValueConverter
+{
+    public object? Convert(object? value, Type t, object? parameter, CultureInfo c) =>
+        TechIcons.ForTechnology(value?.ToString());
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
+public sealed class IconPathSourceConverter : IValueConverter
+{
+    public object? Convert(object? value, Type t, object? parameter, CultureInfo c) =>
+        value is string path ? TechIcons.LoadAny(path) : null;
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 

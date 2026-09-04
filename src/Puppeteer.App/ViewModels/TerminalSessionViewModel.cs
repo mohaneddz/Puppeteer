@@ -16,6 +16,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public ObservableCollection<string> Output { get; } = [];
     public string Name { get; }
     public string ProjectName { get; }
+    public string ProjectTechnology { get; }
     public string ProjectPath { get; }
     public string Command { get; }
     public Brush Accent { get; }
@@ -50,11 +51,12 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public RelayCommand SendCommand { get; }
     public RelayCommand StopCommand { get; }
 
-    public TerminalSessionViewModel(ITerminalSession session, Brush? accent = null)
+    public TerminalSessionViewModel(ITerminalSession session, Project project, Brush? accent = null)
     {
         Session = session;
         Name = session.Name;
-        ProjectName = Path.GetFileName(session.ProjectPath.TrimEnd(Path.DirectorySeparatorChar));
+        ProjectName = project.Name;
+        ProjectTechnology = project.PrimaryTechnology;
         ProjectPath = session.ProjectPath;
         // A preset session is identified by what it runs; a bare shell only has its shell to show.
         Command = string.IsNullOrWhiteSpace(session.Command) ? session.Shell : session.Command!;

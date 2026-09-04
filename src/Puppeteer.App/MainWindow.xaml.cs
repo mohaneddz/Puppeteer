@@ -6,6 +6,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Threading;
 using Puppeteer.App.ViewModels;
 
 namespace Puppeteer.App;
@@ -20,6 +21,8 @@ public partial class MainWindow : Window
 
     private readonly Services.TrayIcon _tray;
     private bool _exiting;
+    private System.Windows.Point _terminalPaneDragOrigin;
+    private TerminalSessionViewModel? _terminalPaneDragSession;
 
     public MainWindow(MainViewModel viewModel, Services.TrayIcon tray)
     {
@@ -32,6 +35,7 @@ public partial class MainWindow : Window
         Closing += Window_Closing;
         StateChanged += (_, _) => { UpdateMaximizeVisual(); ApplyMinimizeToTray(); };
         _tray.ShowRequested += (_, _) => RestoreFromTray();
+        _tray.ToggleRequested += (_, _) => ToggleTrayVisibility();
         _tray.NewTerminalRequested += (_, _) => { RestoreFromTray(); if (Vm.NewSessionCommand.CanExecute(null)) Vm.NewSessionCommand.Execute(null); };
         _tray.ExitRequested += (_, _) => { _exiting = true; Close(); };
         _tray.SetRunningCount(0);
@@ -169,6 +173,16 @@ public partial class MainWindow : Window
         Activate();
         Topmost = true;
         Topmost = false;
+    }
+
+    private void ToggleTrayVisibility()
+    {
+        if (IsVisible && WindowState != WindowState.Minimized)
+        {
+            SaveLayout();
+            Hide();
+        }
+        else RestoreFromTray();
     }
 
     /// <summary>Start hidden when launched by the Run key with --tray, so logging in doesn't throw a
@@ -380,6 +394,61 @@ public partial class MainWindow : Window
                 e.Handled = true;
                 break;
         }
+    }
+
+    // The output area is intentionally selectable but not itself an input control. Treating a click
+    // anywhere in a pane as intent to type keeps a shell immediately usable, including in split view.
+    private void TerminalPane_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject source && FindVisualParent<Button>(source) is not null) return;
+        if (sender is not DependencyObject pane) return;
+        var input = FindVisualChild<TextBox>(pane);
+        if (input is not { IsEnabled: true }) return;
+        Dispatcher.BeginInvoke(() => input.Focus(), DispatcherPriority.Input);
+    }
+
+    // A split-pane header is a drag handle. The grid itself receives the drop and reorders its
+    // backing session collection, so the session process and its output remain intact.
+    private void TerminalPaneHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: TerminalSessionViewModel session }) return;
+        _terminalPaneDragOrigin = e.GetPosition(this);
+        _terminalPaneDragSession = session;
+    }
+
+    private void TerminalPaneHeader_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_terminalPaneDragSession is null || e.LeftButton != MouseButtonState.Pressed) return;
+        var current = e.GetPosition(this);
+        if (Math.Abs(current.X - _terminalPaneDragOrigin.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(current.Y - _terminalPaneDragOrigin.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        var session = _terminalPaneDragSession;
+        _terminalPaneDragSession = null;
+        DragDrop.DoDragDrop((DependencyObject)sender, session, DragDropEffects.Move);
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject source) where T : DependencyObject
+    {
+        for (DependencyObject? current = source; current is not null; current = ParentOf(current))
+            if (current is T match) return match;
+        return null;
+    }
+
+    private static DependencyObject? ParentOf(DependencyObject current) => current switch
+    {
+        Visual or System.Windows.Media.Media3D.Visual3D => VisualTreeHelper.GetParent(current),
+        _ => LogicalTreeHelper.GetParent(current)
+    };
+
+    private static T? FindVisualChild<T>(DependencyObject source) where T : DependencyObject
+    {
+        for (var i = 0; i < VisualTreeHelper.GetChildrenCount(source); i++)
+        {
+            var child = VisualTreeHelper.GetChild(source, i);
+            if (child is T match) return match;
+            if (FindVisualChild<T>(child) is { } nested) return nested;
+        }
+        return null;
     }
 
     // Auto-follow the tail of a terminal pane's output unless the user has scrolled up to read back.

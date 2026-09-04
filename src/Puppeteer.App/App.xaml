@@ -12,6 +12,9 @@
   <conv:TechIconTintConverter x:Key="TechTint"/>
   <conv:TechMonogramConverter x:Key="TechMono"/>
   <conv:ProjectIconSourceConverter x:Key="ProjectIcon"/>
+  <conv:ProjectIconTintConverter x:Key="ProjectIconTint"/>
+  <conv:TechnologyIconSourceConverter x:Key="TechnologyIcon"/>
+  <conv:IconPathSourceConverter x:Key="IconPathSource"/>
   <conv:ProjectIconFallbackVisibilityConverter x:Key="IconFallbackVis"/>
   <conv:ViewStrokeConverter x:Key="ViewStroke"/>
   <conv:TakeConverter x:Key="Take"/>

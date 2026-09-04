@@ -56,15 +56,26 @@
           <ColumnDefinition Width="*"/>
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
-        <Grid Width="46" Height="46" VerticalAlignment="Top">
-          <Border CornerRadius="11" Background="{Binding PrimaryTechnology, Converter={StaticResource TechTint}}"
+        <Grid Width="46" Height="46" VerticalAlignment="Top" ClipToBounds="True">
+          <Border CornerRadius="11" Background="{Binding Converter={StaticResource ProjectIconTint}}"
                   BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
           <TextBlock Text="{Binding PrimaryTechnology, Converter={StaticResource TechMono}}"
                      Foreground="{Binding PrimaryTechnology, Converter={StaticResource TechBrush}}"
                      FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
                      Visibility="{Binding Converter={StaticResource IconFallbackVis}}"/>
           <Image Source="{Binding Converter={StaticResource ProjectIcon}}" Width="27" Height="27" Stretch="Uniform"
-                 RenderOptions.BitmapScalingMode="HighQuality"/>
+                 RenderOptions.BitmapScalingMode="HighQuality">
+            <Image.Style>
+              <Style TargetType="Image">
+                <Setter Property="Width" Value="27"/><Setter Property="Height" Value="27"/><Setter Property="Stretch" Value="Uniform"/>
+                <Style.Triggers><DataTrigger Binding="{Binding IconFill}" Value="True">
+                  <Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="Auto"/>
+                  <Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="VerticalAlignment" Value="Stretch"/>
+                  <Setter Property="Stretch" Value="UniformToFill"/>
+                </DataTrigger></Style.Triggers>
+              </Style>
+            </Image.Style>
+          </Image>
         </Grid>
         <StackPanel Grid.Column="1" Margin="13,1,0,0" VerticalAlignment="Center">
           <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -118,11 +129,14 @@
             </StackPanel>
             <Button.ContextMenu>
               <ContextMenu>
-                <MenuItem Header="Pin / Unpin" Command="{Binding PlacementTarget.Tag.TogglePinCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                <MenuItem Header="Open Terminal" Command="{Binding PlacementTarget.Tag.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                <MenuItem Header="Open Folder" Command="{Binding PlacementTarget.Tag.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                <MenuItem Header="Open in IDE" Command="{Binding PlacementTarget.Tag.OpenIdeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
-                <MenuItem Header="Copy Path" Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"/>
+                <MenuItem Header="Pin / Unpin" Command="{Binding PlacementTarget.Tag.TogglePinCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Open Terminal" Command="{Binding PlacementTarget.Tag.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Open Folder" Command="{Binding PlacementTarget.Tag.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolderOpen}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Open in IDE" Command="{Binding PlacementTarget.Tag.OpenIdeCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconCode}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Copy Path" Command="{Binding PlacementTarget.Tag.CopyPathCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Archive / Restore" Command="{Binding PlacementTarget.Tag.ToggleArchivedCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconArchive}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Hide / Show project" Command="{Binding PlacementTarget.Tag.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconEyeOff}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                <MenuItem Header="Delete project…" Command="{Binding PlacementTarget.Tag.DeleteProjectCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconTrash}" Width="14" Height="14" Stroke="{StaticResource DangerBrush}"/></MenuItem.Icon></MenuItem>
               </ContextMenu>
             </Button.ContextMenu>
           </Button>

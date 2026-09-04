@@ -18,7 +18,9 @@ public interface IProjectRepository
     Task RemoveRootAsync(Guid rootId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default);
     Task UpsertProjectsAsync(IEnumerable<Project> projects, CancellationToken cancellationToken = default);
+    Task DeleteProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken cancellationToken = default);
     Task SetProjectIconAsync(Guid projectId, string? iconPath, CancellationToken cancellationToken = default);
+    Task SetProjectIconFillAsync(Guid projectId, bool fill, CancellationToken cancellationToken = default);
     Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default);
     Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default);
     Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default);

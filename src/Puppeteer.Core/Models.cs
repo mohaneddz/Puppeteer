@@ -17,7 +17,8 @@ public sealed record Project(
     string? CustomIconPath = null,
     GitStatus? Git = null,
     IReadOnlyList<ProjectSession>? Sessions = null,
-    string? Category = null)
+    string? Category = null,
+    bool IconFill = false)
 {
     public bool IsRunning => Sessions is not null && Sessions.Any(s => s.Running);
     public bool HasGitChanges => Git is not null && Git.ModifiedFileCount > 0;

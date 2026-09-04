@@ -72,7 +72,8 @@
 
     <!-- One terminal pane: prompt + output + input. Data context is a TerminalSessionViewModel. -->
     <DataTemplate x:Key="TerminalPane" DataType="{x:Type vm:TerminalSessionViewModel}">
-      <Border BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Margin="4" Background="{StaticResource TerminalBgBrush}">
+      <Border BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="5" Margin="2" Background="{StaticResource TerminalBgBrush}"
+              HorizontalAlignment="Stretch" VerticalAlignment="Stretch" PreviewMouseLeftButtonDown="TerminalPane_PreviewMouseLeftButtonDown">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -81,7 +82,8 @@
           </Grid.RowDefinitions>
           <!-- Only shown when panes are split: with a single pane the tab bar above already names the
                session and carries the same stop / restart / close actions. -->
-          <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="10,5"
+          <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="7,3"
+                  MouseLeftButtonDown="TerminalPaneHeader_MouseLeftButtonDown" MouseMove="TerminalPaneHeader_MouseMove"
                   Visibility="{Binding DataContext.TerminalSplit, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVis}}">
             <Grid>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -89,20 +91,6 @@
                 <TextBlock Text="{Binding Name}" Margin="7,0,0,0" VerticalAlignment="Center" FontSize="12" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextDimBrush}"/>
                 <TextBlock Text="exited" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="10.5" Foreground="{StaticResource FaintBrush}"
                            Visibility="{Binding Running, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
-              </StackPanel>
-              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Stop process" Command="{Binding StopCommand}"
-                        Visibility="{Binding Running, Converter={StaticResource BoolVis}}">
-                  <Path Data="{StaticResource IconStop}" Width="10" Height="10" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
-                </Button>
-                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Restart"
-                        Command="{Binding DataContext.RestartSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
-                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="11" Height="11"/>
-                </Button>
-                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Close"
-                        Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
-                  <Path Data="{StaticResource IconClose}" Width="9" Height="9" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
-                </Button>
               </StackPanel>
             </Grid>
           </Border>
@@ -115,14 +103,14 @@
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12.5" Margin="14,10,14,2" TextTrimming="CharacterEllipsis">
+            <TextBlock FontFamily="{StaticResource MonoFont}" FontSize="12.5" Margin="9,6,9,1" TextTrimming="CharacterEllipsis">
               <Run Text="{Binding Name, Mode=OneWay}" Foreground="{StaticResource TerminalGreenBrush}" FontWeight="Bold"/><Run Text=":" Foreground="{StaticResource MutedTextBrush}"/><Run Text="{Binding ProjectPath, Mode=OneWay}" Foreground="{StaticResource TerminalCyanBrush}"/>
             </TextBlock>
             <ItemsControl Grid.Row="1" ItemsSource="{Binding Output}"
                           VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
               <ItemsControl.Template>
                 <ControlTemplate TargetType="ItemsControl">
-                  <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" Padding="14,0,14,10"
+                  <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto" Padding="9,0,9,5"
                                 ScrollChanged="TerminalOutput_ScrollChanged">
                     <ItemsPresenter/>
                   </ScrollViewer>
@@ -139,16 +127,31 @@
               </ItemsControl.ItemTemplate>
             </ItemsControl>
           </Grid>
-          <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="14,7">
+          <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="9,4">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
               </Grid.ColumnDefinitions>
               <TextBlock Text="›" FontFamily="{StaticResource MonoFont}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
               <TextBox Grid.Column="1" Text="{Binding Input, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding Running}"
                        Background="Transparent" BorderThickness="0" Padding="0" FontFamily="{StaticResource MonoFont}" FontSize="12.5"
                        VerticalContentAlignment="Center" KeyDown="TerminalInput_KeyDown"/>
+              <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0,0,0">
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Stop process" Command="{Binding StopCommand}"
+                        Visibility="{Binding Running, Converter={StaticResource BoolVis}}">
+                  <Path Data="{StaticResource IconStop}" Width="10" Height="10" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
+                </Button>
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Restart"
+                        Command="{Binding DataContext.RestartSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="11" Height="11"/>
+                </Button>
+                <Button Style="{StaticResource IconButton}" Width="20" Height="20" ToolTip="Close"
+                        Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                  <Path Data="{StaticResource IconClose}" Width="9" Height="9" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                </Button>
+              </StackPanel>
             </Grid>
           </Border>
         </Grid>
@@ -260,6 +263,12 @@
               <controls:SidebarItem Icon="{StaticResource IconFolder}" Label="Projects"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Projects}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Projects"/>
+              <controls:SidebarItem Icon="{StaticResource IconArchive}" Label="Archived"
+                                    IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Archived}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="Archived"/>
+              <controls:SidebarItem Icon="{StaticResource IconEyeOff}" Label="Hidden"
+                                    IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Hidden}"
+                                    Command="{Binding NavigateCommand}" CommandParameter="Hidden"/>
               <controls:SidebarItem Icon="{StaticResource IconActivity}" Label="Running" ShowDot="True" Badge="{Binding RunningBadge}"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Running}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Running"/>
@@ -343,14 +352,14 @@
           <Grid Grid.Row="0">
             <!-- Projects page. Right margin is 0 so the list (and its scrollbar) can bleed to the
                  content edge; the header/filter rows carry their own right inset instead. -->
-            <Grid Margin="26,20,0,0" Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Projects}">
+            <Grid Margin="26,20,0,0" Visibility="{Binding IsLibraryPage, Converter={StaticResource BoolVis}}">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
               <StackPanel Orientation="Horizontal" Margin="0,0,26,0">
-                <TextBlock Text="Projects" Style="{StaticResource PageTitle}"/>
+                <TextBlock Text="{Binding ProjectPageTitle}" Style="{StaticResource PageTitle}"/>
                 <TextBlock VerticalAlignment="Center" Margin="14,8,0,0" Style="{StaticResource MutedText}">
                   <Run Text="{Binding Projects.Count, Mode=OneWay}"/><Run Text=" shown"/>
                 </TextBlock>
@@ -741,8 +750,9 @@
           <Border Grid.Row="2" Background="{StaticResource TerminalBgBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="0,1,0,0">
             <Grid>
               <Grid.RowDefinitions>
-                <RowDefinition Height="44"/>
+                <RowDefinition Height="56"/>
                 <RowDefinition Height="*"/>
+                <RowDefinition Height="32"/>
               </Grid.RowDefinitions>
               <!-- Header -->
               <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1">
@@ -752,12 +762,19 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                   </Grid.ColumnDefinitions>
-                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Style="{StaticResource IconButton}" Width="28" Height="28" Command="{Binding CollapseTerminalCommand}" ToolTip="Collapse">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconChevronDown}" Width="15" Height="15"/>
-                    </Button>
-                    <TextBlock Text="Terminal" Margin="6,0,10,0" VerticalAlignment="Center" FontWeight="Medium" FontSize="12.5"/>
-                    <ListBox Style="{StaticResource BareList}" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" VerticalAlignment="Center" Background="Transparent">
+                  <Grid Grid.ColumnSpan="2" VerticalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                      <TextBlock Text="Terminal" Margin="6,0,10,0" VerticalAlignment="Center" FontWeight="Medium" FontSize="12.5"/>
+                    </StackPanel>
+                    <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                  VerticalAlignment="Center" CanContentScroll="False">
+                    <ListBox Style="{StaticResource BareList}" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" VerticalAlignment="Center" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                       <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
                       <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
@@ -768,7 +785,11 @@
                               <ControlTemplate TargetType="ListBoxItem">
                                 <Border x:Name="Tab" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="7" Padding="10,5">
                                   <StackPanel Orientation="Horizontal">
-                                    <Ellipse Width="7" Height="7" Fill="{Binding Accent}" VerticalAlignment="Center"/>
+                                    <Border Width="22" Height="22" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderStrongBrush}"
+                                            BorderThickness="1" CornerRadius="5" VerticalAlignment="Center"
+                                            ToolTip="{Binding ProjectTechnology}">
+                                      <Image Source="{Binding ProjectTechnology, Converter={StaticResource TechnologyIcon}}" Width="15" Height="15" Stretch="Uniform"/>
+                                    </Border>
                                     <TextBlock Text="{Binding Name}" Margin="7,0,0,0" VerticalAlignment="Center" FontSize="12.5" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextDimBrush}"/>
                                     <Button Style="{StaticResource IconButton}" Width="18" Height="18" Margin="7,0,-2,0" ToolTip="Close tab"
                                             Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
@@ -791,45 +812,12 @@
                         </Style>
                       </ListBox.ItemContainerStyle>
                     </ListBox>
-                    <Button Style="{StaticResource IconButton}" Width="26" Height="26" Margin="3,0,0,0" ToolTip="New tab"
+                    </ScrollViewer>
+                    <Button Grid.Column="2" Style="{StaticResource IconButton}" Width="26" Height="26" Margin="3,0,0,0" VerticalAlignment="Center" ToolTip="New tab"
                             Command="{Binding NewSessionCommand}">
                       <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="13" Height="13"/>
                     </Button>
-                  </StackPanel>
-                  <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ComboBox ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}" Width="140" Height="30"/>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" Margin="6,0,0,0" ToolTip="New shell"
-                            Command="{Binding NewSessionCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="15" Height="15"/>
-                    </Button>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Stop the running process"
-                            Command="{Binding SelectedSession.StopCommand}">
-                      <Path Data="{StaticResource IconStop}" Width="13" Height="13" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
-                    </Button>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Restart this session"
-                            Command="{Binding RestartSessionCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="15" Height="15"/>
-                    </Button>
-                    <Border Width="1" Height="18" Background="{StaticResource BorderBrush}" Margin="6,0"/>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Split panes (show all shells side by side)"
-                            Command="{Binding ToggleSplitCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="15" Height="15"
-                            Stroke="{Binding TerminalSplit, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
-                    </Button>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Fullscreen terminal"
-                            Command="{Binding ToggleTerminalMaxCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="15" Height="15"
-                            Stroke="{Binding TerminalMaximized, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
-                    </Button>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Copy output"
-                            Command="{Binding CopyOutputCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="15" Height="15"/>
-                    </Button>
-                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Clear output"
-                            Command="{Binding ClearOutputCommand}">
-                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTrash}" Width="15" Height="15"/>
-                    </Button>
-                  </StackPanel>
+                  </Grid>
                 </Grid>
               </Border>
               <!-- Body: single pane or split grid -->
@@ -838,13 +826,34 @@
                            Visibility="{Binding SelectedSession, Converter={StaticResource NullVis}, ConverterParameter=Inverse}"/>
                 <ContentControl Content="{Binding SelectedSession}" ContentTemplate="{StaticResource TerminalPane}"
                                 Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
-                <ItemsControl ItemsSource="{Binding Sessions}" ItemTemplate="{StaticResource TerminalPane}"
-                              Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><UniformGrid/></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                </ItemsControl>
+                <controls:TerminalSplitGrid Sessions="{Binding Sessions}" Columns="{Binding SplitColumns}"
+                                            Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}}"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
               </Grid>
+              <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="8,3">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <ComboBox ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}" Width="118" Height="24" FontSize="11.5"/>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" Margin="5,0,0,0" ToolTip="New shell" Command="{Binding NewSessionCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="12" Height="12"/>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Split panes" Command="{Binding ToggleSplitCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="12" Height="12" Stroke="{Binding TerminalSplit, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Automatic split layout" Command="{Binding SetSplitColumnsCommand}" CommandParameter="0" Content="A" FontSize="11"/>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="One split column" Command="{Binding SetSplitColumnsCommand}" CommandParameter="1" Content="1" FontSize="11"/>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Two split columns" Command="{Binding SetSplitColumnsCommand}" CommandParameter="2" Content="2" FontSize="11"/>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Three split columns" Command="{Binding SetSplitColumnsCommand}" CommandParameter="3" Content="3" FontSize="11"/>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Fullscreen terminal" Command="{Binding ToggleTerminalMaxCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="12" Height="12" Stroke="{Binding TerminalMaximized, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Copy output" Command="{Binding CopyOutputCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="12" Height="12"/>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Clear output" Command="{Binding ClearOutputCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTrash}" Width="12" Height="12"/>
+                  </Button>
+                </StackPanel>
+              </Border>
             </Grid>
           </Border>
         </Grid>

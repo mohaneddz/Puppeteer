@@ -113,13 +113,17 @@ public sealed class ProjectSearchService
 
 public static class IconCandidateRanker
 {
-    private static readonly string[] PreferredNames = ["icon", "logo", "app-icon", "app_icon", "appicon", "favicon"];
+    private static readonly string[] PreferredNames = ["icon", "logo", "app-icon", "app_icon", "appicon", "favicon", "apple-touch-icon", "brand", "mark"];
 
     public static int Score(string path, int width, int height)
     {
         var name = Path.GetFileNameWithoutExtension(path);
         var preferredIndex = Array.FindIndex(PreferredNames, x => name.Equals(x, StringComparison.OrdinalIgnoreCase));
         var score = preferredIndex >= 0 ? 200 - preferredIndex * 10 : 0;
+        if (name.StartsWith("favicon", StringComparison.OrdinalIgnoreCase) || name.StartsWith("apple-touch-icon", StringComparison.OrdinalIgnoreCase)) score = Math.Max(score, 180);
+        if (name.Contains("icon", StringComparison.OrdinalIgnoreCase) || name.Contains("logo", StringComparison.OrdinalIgnoreCase)) score = Math.Max(score, 140);
+        if (path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar).Any(part => part.Equals("icons", StringComparison.OrdinalIgnoreCase) || part.Equals("assets", StringComparison.OrdinalIgnoreCase))) score += 25;
+        if (name.Contains("screenshot", StringComparison.OrdinalIgnoreCase) || name.Contains("banner", StringComparison.OrdinalIgnoreCase) || name.Contains("hero", StringComparison.OrdinalIgnoreCase)) score -= 80;
         if (width > 0 && height > 0)
         {
             var ratio = (double)Math.Min(width, height) / Math.Max(width, height);

@@ -12,23 +12,52 @@ public sealed class ProjectIconProvider : IProjectIconProvider
 
 public sealed class IconDiscoveryService : IIconDiscoveryService
 {
-    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".webp", ".avif", ".ico", ".svg" };
-    private static readonly string[] LikelyFolders = ["", "public", "assets", "src/assets", "app", "src-tauri/icons", "Resources", "Assets"];
-    public Task<IReadOnlyList<IconCandidate>> FindAsync(string projectPath, CancellationToken cancellationToken = default)
+    private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".avif", ".ico", ".svg" };
+    private static readonly HashSet<string> IgnoredFolders = new(StringComparer.OrdinalIgnoreCase) { ".git", "node_modules", "bin", "obj", ".next", ".nuxt", "coverage", "vendor" };
+    public Task<IReadOnlyList<IconCandidate>> FindAsync(string projectPath, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
         var candidates = new Dictionary<string, IconCandidate>(StringComparer.OrdinalIgnoreCase);
-        foreach (var relative in LikelyFolders)
+        try
         {
-            var folder = Path.Combine(projectPath, relative.Replace('/', Path.DirectorySeparatorChar));
-            if (!Directory.Exists(folder)) continue;
-            try
+            foreach (var path in EnumerateImageFiles(projectPath, cancellationToken))
             {
-                foreach (var path in Directory.EnumerateFiles(folder, "*", SearchOption.TopDirectoryOnly).Where(x => Extensions.Contains(Path.GetExtension(x))))
-                { cancellationToken.ThrowIfCancellationRequested(); var (width, height) = ReadPngSize(path); candidates[path] = new(path, width, height, IconCandidateRanker.Score(path, width, height)); }
+                try
+                {
+                    var info = new FileInfo(path);
+                    if (info.Length > 8 * 1024 * 1024) continue;
+                    var (width, height) = ReadPngSize(path);
+                    candidates[path] = new(path, width, height, IconCandidateRanker.Score(path, width, height));
+                }
+                catch (IOException) { }
             }
-            catch (UnauthorizedAccessException) { }
         }
-        return Task.FromResult<IReadOnlyList<IconCandidate>>(candidates.Values.OrderByDescending(x => x.Score).Take(30).ToArray());
+        catch (UnauthorizedAccessException) { }
+        catch (IOException) { }
+        return (IReadOnlyList<IconCandidate>)candidates.Values.OrderByDescending(x => x.Score).ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase).Take(60).ToArray();
+    }, cancellationToken);
+
+    private static IEnumerable<string> EnumerateImageFiles(string folder, CancellationToken cancellationToken)
+    {
+        var pending = new Stack<(string Path, int Depth)>();
+        pending.Push((folder, 0));
+        while (pending.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var (current, depth) = pending.Pop();
+            IEnumerable<string> files;
+            try { files = Directory.EnumerateFiles(current); }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; }
+            foreach (var file in files)
+                if (Extensions.Contains(Path.GetExtension(file))) yield return file;
+            if (depth >= 3) continue;
+            IEnumerable<string> directories;
+            try { directories = Directory.EnumerateDirectories(current); }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; }
+            foreach (var directory in directories)
+                if (!IgnoredFolders.Contains(Path.GetFileName(directory))) pending.Push((directory, depth + 1));
+        }
     }
     private static (int Width, int Height) ReadPngSize(string path)
     {

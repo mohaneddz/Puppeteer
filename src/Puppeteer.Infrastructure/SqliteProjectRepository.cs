@@ -24,7 +24,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
             CREATE TABLE IF NOT EXISTS RootFolder(Id TEXT PRIMARY KEY, Path TEXT NOT NULL UNIQUE, CreatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS Project(Id TEXT PRIMARY KEY, Name TEXT NOT NULL, Path TEXT NOT NULL UNIQUE, RootId TEXT NOT NULL,
                 PrimaryTechnology TEXT NOT NULL, TechnologiesJson TEXT NOT NULL, HierarchyJson TEXT NOT NULL, PresetsJson TEXT NOT NULL,
-                LastOpenedAt TEXT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, CustomIconPath TEXT NULL);
+                LastOpenedAt TEXT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, CustomIconPath TEXT NULL, IconFill INTEGER NOT NULL DEFAULT 0);
             CREATE TABLE IF NOT EXISTS DetectedTechnology(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS ProjectTag(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS ProjectIcon(ProjectId TEXT PRIMARY KEY, Path TEXT NULL, UpdatedAt TEXT NOT NULL);
@@ -37,6 +37,13 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         {
             var migrate = connection.CreateCommand();
             migrate.CommandText = "ALTER TABLE Project ADD COLUMN Category TEXT NULL";
+            await migrate.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException) { /* column already exists */ }
+        try
+        {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = "ALTER TABLE Project ADD COLUMN IconFill INTEGER NOT NULL DEFAULT 0";
             await migrate.ExecuteNonQueryAsync(cancellationToken);
         }
         catch (SqliteException) { /* column already exists */ }
@@ -79,14 +86,14 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         using var lease = await LeaseAsync(cancellationToken);
         var connection = lease.Connection;
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category FROM Project ORDER BY Name";
+        command.CommandText = "SELECT Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category,IconFill FROM Project ORDER BY Name";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), Guid.Parse(reader.GetString(3)), reader.GetString(4),
                 JsonSerializer.Deserialize<string[]>(reader.GetString(5)) ?? [], JsonSerializer.Deserialize<string[]>(reader.GetString(6)) ?? [],
                 JsonSerializer.Deserialize<CommandPreset[]>(reader.GetString(7)) ?? [], reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
                 DateTimeOffset.Parse(reader.GetString(9)), DateTimeOffset.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetString(11),
-                Category: reader.IsDBNull(12) ? null : reader.GetString(12)));
+                Category: reader.IsDBNull(12) ? null : reader.GetString(12), IconFill: reader.GetInt64(13) != 0));
         return result;
     }
 
@@ -99,16 +106,16 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         {
             var command = connection.CreateCommand(); command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
-                INSERT INTO Project(Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category)
-                VALUES($id,$name,$path,$root,$primary,$tech,$hierarchy,$presets,$opened,$created,$updated,$icon,$category)
-                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(Project.Category,excluded.Category);
+                INSERT INTO Project(Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category,IconFill)
+                VALUES($id,$name,$path,$root,$primary,$tech,$hierarchy,$presets,$opened,$created,$updated,$icon,$category,$iconFill)
+                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(Project.Category,excluded.Category),IconFill=Project.IconFill;
                 """;
             command.Parameters.AddWithValue("$id", project.Id.ToString()); command.Parameters.AddWithValue("$name", project.Name); command.Parameters.AddWithValue("$path", project.Path);
             command.Parameters.AddWithValue("$root", project.RootId.ToString()); command.Parameters.AddWithValue("$primary", project.PrimaryTechnology);
             command.Parameters.AddWithValue("$tech", JsonSerializer.Serialize(project.Technologies)); command.Parameters.AddWithValue("$hierarchy", JsonSerializer.Serialize(project.Hierarchy));
             command.Parameters.AddWithValue("$presets", JsonSerializer.Serialize(project.Presets)); command.Parameters.AddWithValue("$opened", (object?)project.LastOpenedAt?.ToString("O") ?? DBNull.Value);
             command.Parameters.AddWithValue("$created", (project.CreatedAt ?? DateTimeOffset.UtcNow).ToString("O")); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
-            command.Parameters.AddWithValue("$icon", (object?)project.CustomIconPath ?? DBNull.Value); command.Parameters.AddWithValue("$category", (object?)project.Category ?? DBNull.Value); await command.ExecuteNonQueryAsync(cancellationToken);
+            command.Parameters.AddWithValue("$icon", (object?)project.CustomIconPath ?? DBNull.Value); command.Parameters.AddWithValue("$category", (object?)project.Category ?? DBNull.Value); command.Parameters.AddWithValue("$iconFill", project.IconFill ? 1 : 0); await command.ExecuteNonQueryAsync(cancellationToken);
 
             await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id", project.Id, cancellationToken);
             foreach (var technology in project.Technologies)
@@ -133,6 +140,18 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task DeleteProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken cancellationToken = default)
+    {
+        var ids = projectIds.Distinct().ToArray();
+        if (ids.Length == 0) return;
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var id in ids)
+            await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id; DELETE FROM ProjectIcon WHERE ProjectId=$id; DELETE FROM Project WHERE Id=$id", id, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     public async Task SetProjectIconAsync(Guid projectId, string? iconPath, CancellationToken cancellationToken = default)
     {
         using var lease = await LeaseAsync(cancellationToken);
@@ -144,6 +163,15 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         metadata.CommandText = iconPath is null ? "DELETE FROM ProjectIcon WHERE ProjectId=$id" : "INSERT OR REPLACE INTO ProjectIcon(ProjectId,Path,UpdatedAt) VALUES($id,$path,$updated)";
         metadata.Parameters.AddWithValue("$id", projectId.ToString()); metadata.Parameters.AddWithValue("$path", (object?)iconPath ?? DBNull.Value); metadata.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
         await metadata.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task SetProjectIconFillAsync(Guid projectId, bool fill, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
+        var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET IconFill=$fill,UpdatedAt=$updated WHERE Id=$id";
+        command.Parameters.AddWithValue("$fill", fill ? 1 : 0); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     public async Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default)

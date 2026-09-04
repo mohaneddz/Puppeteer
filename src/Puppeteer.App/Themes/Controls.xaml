@@ -230,7 +230,11 @@
       <Setter.Value>
         <ControlTemplate TargetType="MenuItem">
           <Border x:Name="B" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
-            <ContentPresenter ContentSource="Header" VerticalAlignment="Center"/>
+            <Grid>
+              <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+              <ContentPresenter ContentSource="Icon" VerticalAlignment="Center" HorizontalAlignment="Left"/>
+              <ContentPresenter Grid.Column="1" ContentSource="Header" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsHighlighted" Value="True">

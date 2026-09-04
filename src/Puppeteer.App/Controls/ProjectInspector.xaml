@@ -16,15 +16,26 @@
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="Auto"/>
           </Grid.ColumnDefinitions>
-          <Grid Width="52" Height="52" VerticalAlignment="Top">
-            <Border CornerRadius="13" Background="{Binding SelectedProject.PrimaryTechnology, Converter={StaticResource TechTint}}"
+          <Grid Width="52" Height="52" VerticalAlignment="Top" ClipToBounds="True">
+            <Border CornerRadius="13" Background="{Binding SelectedProject, Converter={StaticResource ProjectIconTint}}"
                     BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
             <TextBlock Text="{Binding SelectedProject.PrimaryTechnology, Converter={StaticResource TechMono}}"
                        Foreground="{Binding SelectedProject.PrimaryTechnology, Converter={StaticResource TechBrush}}"
                        FontWeight="Bold" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Visibility="{Binding SelectedProject, Converter={StaticResource IconFallbackVis}}"/>
             <Image Source="{Binding SelectedProject, Converter={StaticResource ProjectIcon}}" Width="31" Height="31" Stretch="Uniform"
-                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                   RenderOptions.BitmapScalingMode="HighQuality">
+              <Image.Style>
+                <Style TargetType="Image">
+                  <Setter Property="Width" Value="31"/><Setter Property="Height" Value="31"/><Setter Property="Stretch" Value="Uniform"/>
+                  <Style.Triggers><DataTrigger Binding="{Binding SelectedProject.IconFill}" Value="True">
+                    <Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="Auto"/>
+                    <Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="VerticalAlignment" Value="Stretch"/>
+                    <Setter Property="Stretch" Value="UniformToFill"/>
+                  </DataTrigger></Style.Triggers>
+                </Style>
+              </Image.Style>
+            </Image>
           </Grid>
           <StackPanel Grid.Column="1" Margin="14,2,0,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding SelectedProject.Name}" FontSize="21" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
@@ -226,6 +237,8 @@
             </StackPanel>
           </Button>
         </Grid>
+        <CheckBox Content="Fill icon container" IsChecked="{Binding IconFillsContainer}" Margin="2,11,0,0"
+                  ToolTip="Crops the icon to cover the full tile instead of fitting it inside."/>
 
         <!-- Icon candidates -->
         <ItemsControl ItemsSource="{Binding IconCandidates}" Margin="0,12,0,0">
@@ -234,7 +247,7 @@
             <DataTemplate>
               <Button Command="{Binding DataContext.ChooseCandidateCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                       CommandParameter="{Binding}" Width="66" Height="66" Margin="0,0,8,8" Padding="0" ToolTip="{Binding Path}">
-                <Image Source="{Binding Path}" Width="34" Height="34" Stretch="Uniform"/>
+                <Image Source="{Binding Path, Converter={StaticResource IconPathSource}}" Width="34" Height="34" Stretch="Uniform"/>
               </Button>
             </DataTemplate>
           </ItemsControl.ItemTemplate>

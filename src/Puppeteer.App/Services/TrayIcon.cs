@@ -18,6 +18,7 @@ public sealed class TrayIcon : IDisposable
     private readonly ToolStripMenuItem _runningItem;
 
     public event EventHandler? ShowRequested;
+    public event EventHandler? ToggleRequested;
     public event EventHandler? ExitRequested;
     public event EventHandler? NewTerminalRequested;
 
@@ -40,7 +41,10 @@ public sealed class TrayIcon : IDisposable
             Visible = true,
             ContextMenuStrip = menu,
         };
-        _icon.DoubleClick += (_, _) => ShowRequested?.Invoke(this, EventArgs.Empty);
+        _icon.MouseClick += (_, e) =>
+        {
+            if (e.Button == MouseButtons.Left) ToggleRequested?.Invoke(this, EventArgs.Empty);
+        };
     }
 
     /// <summary>Keeps the hover text and the menu's status line in step with what is actually running,
