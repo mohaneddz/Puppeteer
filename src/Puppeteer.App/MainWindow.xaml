@@ -649,7 +649,32 @@
                 <TextBlock Text="AI categorization (Groq)" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
                 <TextBlock Text="Used to label projects as Personal / Client / Hackathon / Course from their README and path. Leave blank to use the .env key in development."
                            Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
-                <TextBox Text="{Binding GroqApiKey, UpdateSourceTrigger=LostFocus}" Width="440" HorizontalAlignment="Left" FontFamily="{StaticResource MonoFont}"/>
+                <!-- Masked by default: this sits on a page the user may well have open while sharing
+                     their screen, and a Groq key is a credential like any other. -->
+                <Grid Width="440" HorizontalAlignment="Left">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <PasswordBox x:Name="GroqKeyBox" PasswordChanged="GroqKey_Changed" FontFamily="{StaticResource MonoFont}"
+                               Visibility="{Binding ShowGroqApiKey, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+                  <TextBox Text="{Binding GroqApiKey, UpdateSourceTrigger=LostFocus}" FontFamily="{StaticResource MonoFont}"
+                           Visibility="{Binding ShowGroqApiKey, Converter={StaticResource BoolVis}}"/>
+                  <Button Grid.Column="1" Margin="8,0,0,0" Padding="12,9" Command="{Binding ToggleGroqKeyVisibilityCommand}">
+                    <TextBlock>
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Text" Value="Show"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding ShowGroqApiKey}" Value="True">
+                              <Setter Property="Text" Value="Hide"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Button>
+                </Grid>
                 <TextBlock Text="Using the key from .env" Style="{StaticResource MutedText}" FontSize="11.5" Foreground="{StaticResource SuccessBrush}" Margin="2,6,0,0"
                            Visibility="{Binding UsingEnvGroqKey, Converter={StaticResource BoolVis}}"/>
                 <CheckBox Content="Automatically categorize new projects" IsChecked="{Binding AutoClassify}" Margin="0,14,0,0"/>

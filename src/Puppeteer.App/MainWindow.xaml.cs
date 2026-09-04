@@ -28,7 +28,7 @@ public partial class MainWindow : Window
         _tray = tray;
         viewModel.PropertyChanged += Vm_PropertyChanged;
         ApplyTerminalLayout();
-        Loaded += async (_, _) => await RestoreLayoutAsync();
+        Loaded += async (_, _) => { await RestoreLayoutAsync(); SyncGroqKeyBox(); };
         Closing += Window_Closing;
         StateChanged += (_, _) => { UpdateMaximizeVisual(); ApplyMinimizeToTray(); };
         _tray.ShowRequested += (_, _) => RestoreFromTray();
@@ -141,6 +141,7 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.TerminalOpen):
             case nameof(MainViewModel.TerminalMaximized): ApplyTerminalLayout(); break;
             case nameof(MainViewModel.RunningCount): _tray.SetRunningCount(Vm.RunningCount); break;
+            case nameof(MainViewModel.GroqApiKey): SyncGroqKeyBox(); break;
         }
     }
 
@@ -281,6 +282,24 @@ public partial class MainWindow : Window
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
     private void RunningPill_Click(object sender, MouseButtonEventArgs e) => Vm.CurrentPage = "Running";
+
+    // PasswordBox deliberately doesn't expose Password as a bindable property, so the masked field is
+    // pushed to the view model by hand. Guarded so restoring the saved key doesn't echo back as an edit.
+    private bool _syncingGroqKey;
+
+    private void GroqKey_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_syncingGroqKey) return;
+        Vm.GroqApiKey = GroqKeyBox.Password;
+    }
+
+    private void SyncGroqKeyBox()
+    {
+        if (GroqKeyBox.Password == Vm.GroqApiKey) return;
+        _syncingGroqKey = true;
+        GroqKeyBox.Password = Vm.GroqApiKey;
+        _syncingGroqKey = false;
+    }
 
     private void Window_DragOver(object sender, DragEventArgs e)
     {
