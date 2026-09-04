@@ -79,7 +79,10 @@
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
-          <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="10,5">
+          <!-- Only shown when panes are split: with a single pane the tab bar above already names the
+               session and carries the same stop / restart / close actions. -->
+          <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="10,5"
+                  Visibility="{Binding DataContext.TerminalSplit, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVis}}">
             <Grid>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                 <Ellipse Width="7" Height="7" Fill="{Binding Accent}" VerticalAlignment="Center"/>
@@ -765,6 +768,15 @@
                             Command="{Binding NewSessionCommand}">
                       <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="15" Height="15"/>
                     </Button>
+                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Stop the running process"
+                            Command="{Binding SelectedSession.StopCommand}">
+                      <Path Data="{StaticResource IconStop}" Width="13" Height="13" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Restart this session"
+                            Command="{Binding RestartSessionCommand}">
+                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="15" Height="15"/>
+                    </Button>
+                    <Border Width="1" Height="18" Background="{StaticResource BorderBrush}" Margin="6,0"/>
                     <Button Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Split panes (show all shells side by side)"
                             Command="{Binding ToggleSplitCommand}">
                       <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="15" Height="15"
