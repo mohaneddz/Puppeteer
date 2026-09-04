@@ -78,7 +78,10 @@ public sealed class GitMetadataService : IGitMetadataService
 {
     public async Task<GitStatus?> GetStatusAsync(string projectPath, CancellationToken cancellationToken = default)
     {
-        if (!Directory.Exists(Path.Combine(projectPath, ".git"))) return null;
+        // A linked worktree stores a .git *file* pointing back to its common Git directory.
+        // Treat it as a repository too, rather than silently classifying it as non-Git.
+        var gitMarker = Path.Combine(projectPath, ".git");
+        if (!Directory.Exists(gitMarker) && !File.Exists(gitMarker)) return null;
         try
         {
             var info = new ProcessStartInfo("git") { WorkingDirectory = projectPath, RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
@@ -89,7 +92,57 @@ public sealed class GitMetadataService : IGitMetadataService
             var changes = lines.Skip(1)
                 .Select(line => new GitFileChange(line.Length > 3 ? line[3..].Trim() : line.Trim(), line.Length >= 2 ? line[..2].Trim() : "?"))
                 .ToArray();
-            return new(branch, changes.Length, UpToDate: changes.Length == 0, changes.Length == 0 ? null : changes.Take(5).ToArray());
+            var remote = await RunGitAsync(projectPath, cancellationToken, "remote", "get-url", "origin");
+            var visibility = remote?.Contains("github.com", StringComparison.OrdinalIgnoreCase) == true
+                ? await RunGitHubCliAsync(projectPath, cancellationToken) : null;
+            // The branch line carries [ahead N, behind M] only when the branch tracks a remote; a repo
+            // with no upstream simply reports neither, which is not the same as being level with one.
+            var (ahead, behind) = ParseDivergence(lines.FirstOrDefault() ?? "");
+            var head = await RunGitAsync(projectPath, cancellationToken, "log", "-1", "--format=%h%n%cI%n%s");
+            var headLines = head?.Split('\n', StringSplitOptions.TrimEntries) ?? [];
+            return new(branch, changes.Length, UpToDate: changes.Length == 0, changes.Length == 0 ? null : changes.Take(5).ToArray(),
+                Ahead: ahead, Behind: behind,
+                Head: headLines.Length > 0 ? headLines[0] : null,
+                LastCommitAt: headLines.Length > 1 && DateTimeOffset.TryParse(headLines[1], out var committed) ? committed : null,
+                LastCommitSubject: headLines.Length > 2 ? headLines[2] : null,
+                RemoteUrl: remote, GitHubVisibility: visibility);
+        }
+        catch { return null; }
+    }
+
+    private static (int Ahead, int Behind) ParseDivergence(string branchLine)
+    {
+        var open = branchLine.IndexOf('[');
+        var close = branchLine.IndexOf(']');
+        if (open < 0 || close < open) return (0, 0);
+        var ahead = 0; var behind = 0;
+        foreach (var part in branchLine[(open + 1)..close].Split(',', StringSplitOptions.TrimEntries))
+        {
+            var pieces = part.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (pieces.Length != 2 || !int.TryParse(pieces[1], out var count)) continue;
+            if (pieces[0] == "ahead") ahead = count;
+            else if (pieces[0] == "behind") behind = count;
+        }
+        return (ahead, behind);
+    }
+
+    private static async Task<string?> RunGitAsync(string path, CancellationToken token, params string[] arguments)
+    {
+        var info = new ProcessStartInfo("git") { WorkingDirectory = path, RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        using var process = Process.Start(info)!;
+        var output = await process.StandardOutput.ReadToEndAsync(token); await process.WaitForExitAsync(token);
+        return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output.Trim() : null;
+    }
+
+    private static async Task<string?> RunGitHubCliAsync(string path, CancellationToken token)
+    {
+        try
+        {
+            var info = new ProcessStartInfo("gh") { WorkingDirectory = path, RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true };
+            info.ArgumentList.Add("repo"); info.ArgumentList.Add("view"); info.ArgumentList.Add("--json"); info.ArgumentList.Add("visibility"); info.ArgumentList.Add("--jq"); info.ArgumentList.Add(".visibility");
+            using var process = Process.Start(info)!; var output = await process.StandardOutput.ReadToEndAsync(token); await process.WaitForExitAsync(token);
+            return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output.Trim().ToLowerInvariant() : null;
         }
         catch { return null; }
     }
