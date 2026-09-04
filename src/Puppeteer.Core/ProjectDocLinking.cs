@@ -3,7 +3,7 @@ namespace Puppeteer.Core;
 /// <summary>How sure Puppeteer is that a doc describes a project. Anything below
 /// <see cref="Suggested"/> is not a match; <see cref="Suggested"/> is offered to the user but never
 /// linked on its own, because silently attaching the wrong doc to a project is worse than none.</summary>
-public enum DocMatchConfidence { None = 0, Suggested = 1, Name = 2, FolderName = 3, ExactPath = 4 }
+public enum DocMatchConfidence { None = 0, Suggested = 1, Ancestor = 2, Name = 3, FolderName = 4, ExactPath = 5 }
 
 public sealed record DocMatch(ProjectDoc Doc, DocMatchConfidence Confidence, string Reason);
 
@@ -23,9 +23,11 @@ public static class ProjectDocMatcher
         foreach (var project in projects.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase))
         {
             if (Best(project, candidates) is not { } match) continue;
-            // Two projects can share a folder name (an App and a Website half, say). The stronger
-            // claim keeps the doc; the weaker one is left undocumented rather than double-linked.
-            if (claimed.TryGetValue(match.Doc.FilePath, out var owner))
+            // Two unrelated projects must not both claim one doc — the stronger claim keeps it. An
+            // ancestor match is the exception: a doc covering a folder that holds several repos (an
+            // App and a Website half, say) genuinely describes all of them.
+            if (match.Confidence > DocMatchConfidence.Ancestor && claimed.TryGetValue(match.Doc.FilePath, out var owner)
+                && matches[owner].Confidence > DocMatchConfidence.Ancestor)
             {
                 if (matches[owner].Confidence >= match.Confidence) continue;
                 matches.Remove(owner);
@@ -59,6 +61,12 @@ public static class ProjectDocMatcher
         var names = doc.Names();
         if (names.Any(name => Normalize(name) == Normalize(project.Name))) return new(doc, DocMatchConfidence.Name, "the doc is named after this project");
         if (names.Any(name => Normalize(name) == Normalize(folder))) return new(doc, DocMatchConfidence.Name, "the doc is named after this folder");
+        // Scanning finds the repos, not the folder above them: a doc for AUP describes AUP\backend
+        // too, and one for Warraq covers both its App and its Website.
+        if (doc.Location is { Length: > 0 } parent && IsUnder(project.Path, parent))
+            return new(doc, DocMatchConfidence.Ancestor, $"this sits inside the doc's Location, {FolderName(parent)}");
+        if (names.Any(name => IsUnder(project.Path, name, byFolderName: true)))
+            return new(doc, DocMatchConfidence.Ancestor, $"this sits inside a folder named after the doc");
         foreach (var name in names)
             if (IsNearMiss(Normalize(name), Normalize(project.Name)))
                 return new(doc, DocMatchConfidence.Suggested, $"“{name}” is close to “{project.Name}”");
@@ -69,6 +77,21 @@ public static class ProjectDocMatcher
     {
         static string Clean(string path) => path.Replace('/', '\\').TrimEnd('\\').Trim();
         return Clean(left).Equals(Clean(right), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <param name="byFolderName">Match any segment of the project's path against
+    /// <paramref name="ancestor"/> as a name, rather than treating it as a full path.</param>
+    private static bool IsUnder(string projectPath, string ancestor, bool byFolderName = false)
+    {
+        var segments = projectPath.Replace('/', '\\').TrimEnd('\\').Split('\\', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Length < 2) return false;
+        if (byFolderName)
+        {
+            var name = Normalize(ancestor);
+            return name.Length >= 3 && segments[..^1].Any(segment => Normalize(segment) == name);
+        }
+        var cleaned = ancestor.Replace('/', '\\').TrimEnd('\\').Trim();
+        return cleaned.Length > 0 && projectPath.StartsWith(cleaned + "\\", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string FolderName(string path)
@@ -140,18 +163,22 @@ public sealed record DocDriftReport(Guid ProjectId, DocDrift Drift, IReadOnlyLis
 
 public static class ProjectDocDrift
 {
-    public static DocDriftReport Compare(Project project, ProjectDoc? doc)
+    /// <param name="confidence">How the doc was matched. A doc matched as an ancestor describes the
+    /// folder above several repos, so its Location and Stack are meant to differ from any one of
+    /// them — comparing those would report drift that is not there.</param>
+    public static DocDriftReport Compare(Project project, ProjectDoc? doc, DocMatchConfidence confidence = DocMatchConfidence.ExactPath)
     {
         var drift = DocDrift.None;
         var reasons = new List<string>();
         void Flag(DocDrift kind, string reason) { drift |= kind; reasons.Add(reason); }
+        var describesThisFolder = confidence != DocMatchConfidence.Ancestor;
 
         if (doc is null) Flag(DocDrift.NoDoc, "No state doc in the vault");
         else
         {
-            if (doc.Location is { Length: > 0 } location && !ProjectDocMatcher.SamePath(location, project.Path))
+            if (describesThisFolder && doc.Location is { Length: > 0 } location && !ProjectDocMatcher.SamePath(location, project.Path))
                 Flag(DocDrift.StaleLocation, $"Doc still points at {location}");
-            if (doc.Stack is { Length: > 0 } stack && !project.Technologies.Any(t => stack.Contains(t, StringComparison.OrdinalIgnoreCase)))
+            if (describesThisFolder && doc.Stack is { Length: > 0 } stack && !project.Technologies.Any(t => stack.Contains(t, StringComparison.OrdinalIgnoreCase)))
                 Flag(DocDrift.StaleStack, $"Doc's stack mentions none of {string.Join(", ", project.Technologies)}");
             if (ProjectDocStatuses.Parse(doc.Status) is null)
                 Flag(DocDrift.NoStatus, "Doc has no Status field");

@@ -143,6 +143,11 @@
                           CommandParameter="{Binding}" Visibility="{Binding HasDoc, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}">
                     <TextBlock Text="Create doc" FontSize="12"/>
                   </Button>
+                  <Button Margin="7,0,0,0" Padding="10,6" ToolTip="{Binding SuggestionName, StringFormat=Attach {0} to this project}"
+                          Command="{Binding DataContext.AcceptDocSuggestionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          CommandParameter="{Binding}" Visibility="{Binding HasSuggestion, Converter={StaticResource BoolVis}}">
+                    <TextBlock Text="{Binding SuggestionName, StringFormat=Link {0}?}" FontSize="12" Foreground="{StaticResource AccentBrush}"/>
+                  </Button>
                   <Button Margin="7,0,0,0" Padding="10,6" ToolTip="Show this project in the inspector"
                           Command="{Binding DataContext.SelectDocEntryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                           CommandParameter="{Binding}">

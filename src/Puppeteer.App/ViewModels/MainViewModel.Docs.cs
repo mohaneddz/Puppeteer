@@ -17,6 +17,7 @@ public sealed partial class MainViewModel
     private IProjectDocVault? _vault;
     private readonly List<ProjectDoc> _docs = [];
     private readonly Dictionary<Guid, DocMatch> _docMatches = [];
+    private readonly Dictionary<Guid, DocMatch> _docSuggestions = [];
     private readonly Dictionary<Guid, ProjectDocLink> _docLinks = [];
     private readonly Dictionary<Guid, DocDriftReport> _docDrift = [];
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
@@ -66,6 +67,7 @@ public sealed partial class MainViewModel
     public AsyncRelayCommand SyncDocFactsCommand { get; private set; } = null!;
     public AsyncRelayCommand SyncAllDocFactsCommand { get; private set; } = null!;
     public RelayCommand SelectDocEntryCommand { get; private set; } = null!;
+    public AsyncRelayCommand AcceptDocSuggestionCommand { get; private set; } = null!;
 
     private void InitializeDocs()
     {
@@ -79,8 +81,10 @@ public sealed partial class MainViewModel
         UnlinkDocCommand = new(_ => UnlinkDocAsync(), _ => SelectedProject is not null && SelectedDoc is not null);
         SaveDocCommand = new(_ => SaveDocAsync(), _ => DocDirty);
         RevertDocCommand = new(_ => ReloadSelectedDocAsync(), _ => SelectedDoc is not null);
-        SyncDocFactsCommand = new(_ => SyncFactsAsync(SelectedProject), _ => SelectedProject is not null && SelectedDoc is not null);
+        SyncDocFactsCommand = new(_ => SyncFactsAsync(SelectedProject), _ => DescribesItsOwnFolder(SelectedProject));
         SyncAllDocFactsCommand = new(_ => SyncAllFactsAsync(), _ => HasVault && _docMatches.Count > 0);
+        AcceptDocSuggestionCommand = new(p => AcceptSuggestionAsync((p as ProjectDocEntry)?.Project ?? SelectedProject),
+            p => SuggestionFor((p as ProjectDocEntry)?.Project ?? SelectedProject) is not null);
         SelectDocEntryCommand = new(p => { if (p is ProjectDocEntry entry) SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project; });
 
         PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SelectedProject)) { LoadSelectedDoc(); _ = LoadHistoryAsync(); } };
@@ -162,12 +166,21 @@ public sealed partial class MainViewModel
             spokenFor.Add(doc.FilePath);
         }
         var remaining = _docs.Where(d => !spokenFor.Contains(d.FilePath)).ToArray();
+        _docSuggestions.Clear();
         foreach (var (projectId, match) in ProjectDocMatcher.Match(_allProjects.Where(p => !_docMatches.ContainsKey(p.Id)), remaining))
-            _docMatches[projectId] = match;
+        {
+            // A near-miss on a name is a guess. Attaching the wrong doc to a project is worse than
+            // leaving it undocumented, so it is offered for one click rather than applied.
+            if (match.Confidence == DocMatchConfidence.Suggested) _docSuggestions[projectId] = match;
+            else _docMatches[projectId] = match;
+        }
 
         _docDrift.Clear();
         foreach (var project in _allProjects)
-            _docDrift[project.Id] = ProjectDocDrift.Compare(project, _docMatches.GetValueOrDefault(project.Id)?.Doc);
+        {
+            var match = _docMatches.GetValueOrDefault(project.Id);
+            _docDrift[project.Id] = ProjectDocDrift.Compare(project, match?.Doc, match?.Confidence ?? DocMatchConfidence.ExactPath);
+        }
     }
 
     private void RebuildDocEntries()
@@ -178,6 +191,7 @@ public sealed partial class MainViewModel
                 _docMatches.GetValueOrDefault(project.Id)?.Doc,
                 _docMatches.GetValueOrDefault(project.Id)?.Confidence ?? DocMatchConfidence.None,
                 _docLinks.GetValueOrDefault(project.Id)?.Manual == true,
+                _docSuggestions.GetValueOrDefault(project.Id)?.Doc,
                 _docDrift.GetValueOrDefault(project.Id) ?? new(project.Id, DocDrift.NoDoc, ["No state doc in the vault"]),
                 _snapshots.GetValueOrDefault(project.Id)))
             .Where(Keep)
@@ -251,7 +265,8 @@ public sealed partial class MainViewModel
         _docNext = doc?.Section(ProjectDocSections.Next) ?? "";
         _docNotes = doc?.Section(ProjectDocSections.Notes) ?? "";
         foreach (var name in new[] { nameof(DocStatusValue), nameof(DocSummary), nameof(DocWorks), nameof(DocBroken), nameof(DocNext), nameof(DocNotes),
-                                     nameof(SelectedDrift), nameof(SelectedDriftSummary), nameof(SelectedHasDrift), nameof(SelectedLinkNote) })
+                                     nameof(SelectedDrift), nameof(SelectedDriftSummary), nameof(SelectedHasDrift), nameof(SelectedLinkNote),
+                                     nameof(SelectedSuggestionName), nameof(HasSelectedSuggestion) })
             Raise(name);
         DocDirty = false;
         DocConflicted = false;
@@ -343,6 +358,24 @@ public sealed partial class MainViewModel
         return folders.FirstOrDefault(f => ProjectDocMatcher.Normalize(f) == ProjectDocMatcher.Normalize(category)) ?? category;
     }
 
+    /// <summary>Whether the project's doc is about that folder, rather than one above it. Only then
+    /// may Puppeteer rewrite the doc's Location and Stack — a doc covering three repos must not be
+    /// pointed at whichever of them happened to be selected.</summary>
+    private bool DescribesItsOwnFolder(Project? project) =>
+        project is not null && _docMatches.GetValueOrDefault(project.Id) is { Confidence: not DocMatchConfidence.Ancestor };
+
+    private DocMatch? SuggestionFor(Project? project) => project is null ? null : _docSuggestions.GetValueOrDefault(project.Id);
+
+    public string SelectedSuggestionName => SuggestionFor(SelectedProject) is { } match ? Path.GetFileName(match.Doc.FilePath) : "";
+    public bool HasSelectedSuggestion => SuggestionFor(SelectedProject) is not null;
+
+    private async Task AcceptSuggestionAsync(Project? project)
+    {
+        if (project is null || SuggestionFor(project) is not { } match) return;
+        await LinkAsync(project.Id, match.Doc.FilePath, manual: true);
+        Status = $"Linked {Path.GetFileName(match.Doc.FilePath)} to {project.Name}";
+    }
+
     private async Task LinkDocAsync()
     {
         if (SelectedProject is not { } project) return;
@@ -374,7 +407,7 @@ public sealed partial class MainViewModel
     /// what it is built with, when it last moved. Every section of prose is left alone.</summary>
     private async Task SyncFactsAsync(Project? project)
     {
-        if (project is null || _docMatches.GetValueOrDefault(project.Id)?.Doc is not { } doc) return;
+        if (!DescribesItsOwnFolder(project) || _docMatches.GetValueOrDefault(project!.Id)?.Doc is not { } doc) return;
         var updated = ApplyFacts(doc, project);
         if (ProjectDocFormat.Render(updated) == ProjectDocFormat.Render(doc)) { Status = $"{project.Name}'s doc already matches."; return; }
         await WriteDocAsync(updated, doc.ModifiedAt, $"Updated {Path.GetFileName(doc.FilePath)} from the repo");
@@ -383,7 +416,7 @@ public sealed partial class MainViewModel
 
     private async Task SyncAllFactsAsync()
     {
-        var targets = _allProjects.Where(p => _docMatches.ContainsKey(p.Id)).ToArray();
+        var targets = _allProjects.Where(DescribesItsOwnFolder).ToArray();
         if (targets.Length == 0) return;
         var answer = MessageBox.Show(
             $"Update the Location, Stack and Last activity lines in {targets.Length} docs from what is on disk?\n\nProse sections are not touched.",

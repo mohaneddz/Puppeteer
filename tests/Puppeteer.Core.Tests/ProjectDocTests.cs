@@ -205,14 +205,33 @@ public class ProjectDocMatchingTests
     }
 
     [Fact]
-    public void GivesASharedDocToTheStrongerClaim()
+    public void CoversEveryRepoInsideADocumentedFolder()
+    {
+        var app = ProjectAt(@"D:\Programming\Desktop\Tauri\Personal\Warraq\App", "App");
+        var website = ProjectAt(@"D:\Programming\Desktop\Tauri\Personal\Warraq\Website", "Website");
+        var doc = Doc("Warraq", @"**Location:** D:\Programming\Desktop\Tauri\Personal\Warraq");
+        var matches = ProjectDocMatcher.Match([app, website], [doc]);
+        Assert.Equal(DocMatchConfidence.Ancestor, matches[app.Id].Confidence);
+        Assert.Equal(DocMatchConfidence.Ancestor, matches[website.Id].Confidence);
+    }
+
+    [Fact]
+    public void LetsTheNamedProjectOutrankItsOwnSubfolders()
     {
         var app = ProjectAt(@"D:\Programming\Desktop\Tauri\Personal\Warraq\App", "App");
         var root = ProjectAt(@"D:\Programming\Desktop\Tauri\Personal\Warraq");
         var doc = Doc("Warraq", @"**Location:** D:\Programming\Desktop\Tauri\Personal\Warraq");
         var matches = ProjectDocMatcher.Match([app, root], [doc]);
-        Assert.False(matches.ContainsKey(app.Id));
         Assert.Equal(DocMatchConfidence.ExactPath, matches[root.Id].Confidence);
+        Assert.Equal(DocMatchConfidence.Ancestor, matches[app.Id].Confidence);
+    }
+
+    [Fact]
+    public void DoesNotClaimAnUnrelatedProjectDeeperInTheTree()
+    {
+        var other = ProjectAt(@"D:\Programming\Web\Personal\Cosmetocare");
+        var doc = Doc("Warraq", @"**Location:** D:\Programming\Desktop\Tauri\Personal\Warraq");
+        Assert.Null(ProjectDocMatcher.Best(other, [doc]));
     }
 }
 

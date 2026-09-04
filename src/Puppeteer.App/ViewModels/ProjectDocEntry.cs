@@ -4,7 +4,7 @@ namespace Puppeteer.App.ViewModels;
 
 /// <summary>One row of the Docs page: a project, the doc that describes it (if any), and how far the
 /// two have drifted apart.</summary>
-public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, DocDriftReport drift, ProjectStateSnapshot? snapshot)
+public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, DocDriftReport drift, ProjectStateSnapshot? snapshot)
 {
     public Project Project { get; } = project;
     public ProjectDoc? Doc { get; } = doc;
@@ -17,6 +17,10 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
     public string DocPath => Doc?.FilePath ?? "";
     public string DocName => Doc is null ? "" : System.IO.Path.GetFileName(Doc.FilePath);
 
+    /// <summary>A doc whose name is close enough to be worth offering, but not to attach on its own.</summary>
+    public bool HasSuggestion => Doc is null && suggestion is not null;
+    public string SuggestionName => suggestion is null ? "" : System.IO.Path.GetFileName(suggestion.FilePath);
+
     public string Status => Doc is null ? "Undocumented" : ProjectDocStatuses.Parse(Doc.Status) ?? "Unlabelled";
 
     /// <summary>Why this doc was attached, shown so an automatic guess can be recognised as one.</summary>
@@ -25,10 +29,9 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
         DocMatchConfidence.ExactPath => "matched on path",
         DocMatchConfidence.FolderName => "matched on folder name",
         DocMatchConfidence.Name => "matched on name",
-        _ => "suggested",
+        DocMatchConfidence.Ancestor => "part of a documented folder",
+        _ => "",
     };
-
-    public bool IsSuggestion => !manual && confidence == DocMatchConfidence.Suggested;
 
     public string Summary => Doc?.Section(ProjectDocSections.Summary) is { Length: > 0 } summary
         ? FirstLine(summary)

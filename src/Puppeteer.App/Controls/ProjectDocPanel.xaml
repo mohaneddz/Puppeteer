@@ -32,6 +32,11 @@
     <!-- No doc for this project yet -->
     <StackPanel Visibility="{Binding HasSelectedDoc, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}">
       <TextBlock Text="No doc in the vault describes this project." Style="{StaticResource MutedText}" TextWrapping="Wrap"/>
+      <Button Command="{Binding AcceptDocSuggestionCommand}" Margin="0,10,0,0" Padding="10,8" HorizontalAlignment="Stretch"
+              Visibility="{Binding HasSelectedSuggestion, Converter={StaticResource BoolVis}}"
+              ToolTip="Close on the name, but not close enough to attach without asking">
+        <TextBlock Text="{Binding SelectedSuggestionName, StringFormat=Link {0}?}" FontSize="12" Foreground="{StaticResource AccentBrush}"/>
+      </Button>
       <Grid Margin="0,10,0,0">
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/>
