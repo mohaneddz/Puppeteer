@@ -20,8 +20,9 @@
       </Setter>
     </Style>
   </UserControl.Resources>
-  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand"
-          ToolTip="Double-click to open a terminal here">
+  <!-- No card-level tooltip: it would shadow the per-element tooltips (path, status, actions) that
+       carry the information a hover is actually asking for. -->
+  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand">
     <Border.Style>
       <Style TargetType="Border">
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
@@ -66,8 +67,8 @@
                  RenderOptions.BitmapScalingMode="HighQuality"/>
         </Grid>
         <StackPanel Grid.Column="1" Margin="13,1,0,0" VerticalAlignment="Center">
-          <TextBlock Text="{Binding Name}" FontSize="16.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-          <TextBlock Text="{Binding Path}" Style="{StaticResource MutedText}" Margin="0,2,0,0"
+          <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+          <TextBlock Text="{Binding Converter={StaticResource Breadcrumb}}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,3,0,0"
                      TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">

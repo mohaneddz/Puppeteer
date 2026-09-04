@@ -23,5 +23,6 @@
   <conv:ActiveFolderBrushConverter x:Key="ActiveFolder"/>
   <conv:ToastMarginConverter x:Key="ToastMargin"/>
   <conv:PanelToggleIconConverter x:Key="PanelToggleIcon"/>
+  <conv:ProjectBreadcrumbConverter x:Key="Breadcrumb"/>
  </ResourceDictionary></Application.Resources>
 </Application>

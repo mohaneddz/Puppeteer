@@ -258,3 +258,13 @@ internal static class Tech
 
     private static Color FromHex(string hex) => (Color)ColorConverter.ConvertFromString(hex);
 }
+
+/// <summary>Renders a project's location as the folder breadcrumb below its root ("Tauri › Personal")
+/// rather than the absolute path. Every project under one root shares the same long path prefix, so
+/// showing it on a card wastes the line and truncates away the part that actually differs.</summary>
+public sealed class ProjectBreadcrumbConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
+        value is Project { Hierarchy.Count: > 0 } p ? string.Join("  ›  ", p.Hierarchy) : "root";
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}

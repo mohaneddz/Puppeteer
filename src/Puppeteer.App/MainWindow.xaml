@@ -164,7 +164,9 @@
                   Data="{Binding SidebarCollapsed, Converter={StaticResource PanelToggleIcon}, ConverterParameter=Left}"/>
           </Button>
           <!-- Search -->
-          <Border Grid.Column="2" MaxWidth="480" HorizontalAlignment="Left" Height="38" Margin="16,0,0,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Width="480">
+          <!-- Stretch with a cap rather than a fixed Width, so a narrow window shrinks the search box
+               instead of crushing the toolbar buttons on its right. -->
+          <Border Grid.Column="2" MaxWidth="480" HorizontalAlignment="Stretch" Height="38" Margin="16,0,16,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9">
             <Grid Margin="12,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -178,7 +180,7 @@
                 <TextBox x:Name="SearchBox" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" Padding="0" VerticalContentAlignment="Center"/>
               </Grid>
               <Border Grid.Column="2" Background="{StaticResource ElevatedBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="5" Padding="6,2" VerticalAlignment="Center">
-                <TextBlock Text="⌘K" FontSize="11" Foreground="{StaticResource MutedTextBrush}"/>
+                <TextBlock Text="Ctrl K" FontSize="11" Foreground="{StaticResource MutedTextBrush}"/>
               </Border>
             </Grid>
           </Border>

@@ -28,13 +28,20 @@
           </Grid>
           <StackPanel Grid.Column="1" Margin="14,2,0,0" VerticalAlignment="Center">
             <TextBlock Text="{Binding SelectedProject.Name}" FontSize="21" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
-            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-              <TextBlock Text="{Binding SelectedProject.Path}" Style="{StaticResource MutedText}" TextTrimming="CharacterEllipsis"/>
-              <Button Style="{StaticResource IconButton}" Width="22" Height="22" Margin="5,0,0,0" ToolTip="Copy path"
+            <!-- Grid, not a horizontal StackPanel: a StackPanel measures its children against infinite
+                 width, so the path never ellipsizes and shoves the copy button past the panel edge. -->
+            <Grid Margin="0,4,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="{Binding SelectedProject.Path}" Style="{StaticResource MutedText}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis" ToolTip="{Binding SelectedProject.Path}"/>
+              <Button Grid.Column="1" Style="{StaticResource IconButton}" Width="22" Height="22" Margin="5,0,0,0" ToolTip="Copy path"
                       Command="{Binding CopyPathCommand}" CommandParameter="{Binding SelectedProject}">
                 <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="13" Height="13" Stroke="{StaticResource FaintBrush}"/>
               </Button>
-            </StackPanel>
+            </Grid>
           </StackPanel>
           <Ellipse Grid.Column="2" Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,0,0"
                    Fill="{Binding SelectedProject, Converter={StaticResource StatusBrush}}"
