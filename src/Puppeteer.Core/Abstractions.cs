@@ -28,7 +28,39 @@ public interface IProjectRepository
     /// <summary>Writes several settings in one transaction. Used for snapshots that must land
     /// together and promptly — the window layout saved during shutdown, above all.</summary>
     Task SetSettingsAsync(IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProjectDocLink>> GetDocLinksAsync(CancellationToken cancellationToken = default);
+    Task SetDocLinkAsync(ProjectDocLink link, CancellationToken cancellationToken = default);
+    Task RemoveDocLinkAsync(Guid projectId, CancellationToken cancellationToken = default);
+    /// <summary>Stores a snapshot, skipping it when nothing has moved since the last one — an idle
+    /// project rescanned every launch should not grow a row a day.</summary>
+    Task AddSnapshotAsync(ProjectStateSnapshot snapshot, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ProjectStateSnapshot>> GetSnapshotsAsync(Guid projectId, int limit = 40, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<Guid, ProjectStateSnapshot>> GetLatestSnapshotsAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>Reads and writes the folder of markdown state docs.
+///
+/// The vault is shared with whatever else edits it — an editor, another machine over sync, a Claude
+/// session — so nothing here caches a file it has not re-read, every write goes through a temporary
+/// file and a replace, and <see cref="Changed"/> reports edits that arrived from outside.</summary>
+public interface IProjectDocVault : IDisposable
+{
+    string? VaultPath { get; }
+    /// <summary>Raised on the thread pool when a doc changes on disk. The argument is the doc's path.</summary>
+    event EventHandler<string>? Changed;
+    void Open(string? vaultPath);
+    Task<IReadOnlyList<ProjectDoc>> LoadAsync(CancellationToken cancellationToken = default);
+    Task<ProjectDoc?> ReadAsync(string docPath, CancellationToken cancellationToken = default);
+    /// <param name="expectedModifiedAt">The timestamp the caller last read. When the file on disk is
+    /// newer, the write is refused rather than overwriting an edit made elsewhere.</param>
+    Task<DocWriteResult> WriteAsync(ProjectDoc doc, DateTimeOffset? expectedModifiedAt, CancellationToken cancellationToken = default);
+    /// <summary>Where a doc for this project would live: <c>&lt;vault&gt;/&lt;category&gt;/&lt;name&gt;.md</c>.</summary>
+    string PathFor(string category, string projectName);
+    IReadOnlyList<string> Categories();
+}
+
+public enum DocWriteOutcome { Written, Conflict, NoVault, Failed }
+public sealed record DocWriteResult(DocWriteOutcome Outcome, ProjectDoc? Doc, string? Message);
 
 /// <summary>Classifies a project's purpose (personal / client / hackathon / course / work) from its
 /// README and path. Implementations may call an LLM; a null result means "could not decide".</summary>

@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         .AddSingleton<IProjectLauncher, ProjectLauncher>()
         .AddSingleton<ITerminalService, ProcessTerminalService>()
         .AddSingleton<IFileSystemWatchService, FileSystemWatchService>()
+        .AddSingleton<IProjectDocVault, ProjectDocVault>()
         .AddSingleton<IProjectClassifier>(_ => new GroqProjectClassifier(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) }))
         .AddSingleton<ProjectSearchService>();
 }

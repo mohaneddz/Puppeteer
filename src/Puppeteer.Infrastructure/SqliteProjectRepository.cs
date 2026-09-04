@@ -30,6 +30,11 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
             CREATE TABLE IF NOT EXISTS ProjectIcon(ProjectId TEXT PRIMARY KEY, Path TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS TerminalPreset(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, Command TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS AppSetting(Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ProjectDocLink(ProjectId TEXT PRIMARY KEY, DocPath TEXT NOT NULL, Manual INTEGER NOT NULL DEFAULT 0, LinkedAt TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ProjectSnapshot(Id INTEGER PRIMARY KEY AUTOINCREMENT, ProjectId TEXT NOT NULL, CapturedAt TEXT NOT NULL,
+                Branch TEXT NULL, Head TEXT NULL, ModifiedFileCount INTEGER NOT NULL, Ahead INTEGER NOT NULL, Behind INTEGER NOT NULL,
+                LastCommitAt TEXT NULL, LastCommitSubject TEXT NULL, Status TEXT NULL);
+            CREATE INDEX IF NOT EXISTS ProjectSnapshotByProject ON ProjectSnapshot(ProjectId, CapturedAt DESC);
             """;
         await command.ExecuteNonQueryAsync(cancellationToken);
         // Category was added after the first release; older databases need the column backfilled.
@@ -148,7 +153,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         var connection = lease.Connection;
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         foreach (var id in ids)
-            await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id; DELETE FROM ProjectIcon WHERE ProjectId=$id; DELETE FROM Project WHERE Id=$id", id, cancellationToken);
+            await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id; DELETE FROM ProjectIcon WHERE ProjectId=$id; DELETE FROM ProjectDocLink WHERE ProjectId=$id; DELETE FROM ProjectSnapshot WHERE ProjectId=$id; DELETE FROM Project WHERE Id=$id", id, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -228,6 +233,103 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         }
         await transaction.CommitAsync(cancellationToken);
     }
+
+    public async Task<IReadOnlyList<ProjectDocLink>> GetDocLinksAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new List<ProjectDocLink>();
+        using var lease = await LeaseAsync(cancellationToken);
+        var command = lease.Connection.CreateCommand();
+        command.CommandText = "SELECT ProjectId, DocPath, Manual, LinkedAt FROM ProjectDocLink";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetInt64(2) != 0, DateTimeOffset.Parse(reader.GetString(3))));
+        return result;
+    }
+
+    public async Task SetDocLinkAsync(ProjectDocLink link, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        var command = lease.Connection.CreateCommand();
+        command.CommandText = "INSERT OR REPLACE INTO ProjectDocLink(ProjectId,DocPath,Manual,LinkedAt) VALUES($id,$path,$manual,$at)";
+        command.Parameters.AddWithValue("$id", link.ProjectId.ToString()); command.Parameters.AddWithValue("$path", link.DocPath);
+        command.Parameters.AddWithValue("$manual", link.Manual ? 1 : 0); command.Parameters.AddWithValue("$at", link.LinkedAt.ToString("O"));
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task RemoveDocLinkAsync(Guid projectId, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        var command = lease.Connection.CreateCommand();
+        command.CommandText = "DELETE FROM ProjectDocLink WHERE ProjectId=$id";
+        command.Parameters.AddWithValue("$id", projectId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task AddSnapshotAsync(ProjectStateSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
+        // Every launch rescans and would otherwise record an identical row per project per run. The
+        // history is only worth keeping where something actually moved.
+        var latest = connection.CreateCommand();
+        latest.CommandText = "SELECT Branch, Head, ModifiedFileCount, Ahead, Behind, Status FROM ProjectSnapshot WHERE ProjectId=$id ORDER BY CapturedAt DESC LIMIT 1";
+        latest.Parameters.AddWithValue("$id", snapshot.ProjectId.ToString());
+        await using (var reader = await latest.ExecuteReaderAsync(cancellationToken))
+            if (await reader.ReadAsync(cancellationToken)
+                && Same(reader, 0, snapshot.Branch) && Same(reader, 1, snapshot.Head)
+                && reader.GetInt64(2) == snapshot.ModifiedFileCount && reader.GetInt64(3) == snapshot.Ahead
+                && reader.GetInt64(4) == snapshot.Behind && Same(reader, 5, snapshot.Status))
+                return;
+
+        var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO ProjectSnapshot(ProjectId,CapturedAt,Branch,Head,ModifiedFileCount,Ahead,Behind,LastCommitAt,LastCommitSubject,Status)
+            VALUES($id,$at,$branch,$head,$modified,$ahead,$behind,$committed,$subject,$status)
+            """;
+        command.Parameters.AddWithValue("$id", snapshot.ProjectId.ToString()); command.Parameters.AddWithValue("$at", snapshot.CapturedAt.ToString("O"));
+        command.Parameters.AddWithValue("$branch", (object?)snapshot.Branch ?? DBNull.Value); command.Parameters.AddWithValue("$head", (object?)snapshot.Head ?? DBNull.Value);
+        command.Parameters.AddWithValue("$modified", snapshot.ModifiedFileCount); command.Parameters.AddWithValue("$ahead", snapshot.Ahead); command.Parameters.AddWithValue("$behind", snapshot.Behind);
+        command.Parameters.AddWithValue("$committed", (object?)snapshot.LastCommitAt?.ToString("O") ?? DBNull.Value);
+        command.Parameters.AddWithValue("$subject", (object?)snapshot.LastCommitSubject ?? DBNull.Value);
+        command.Parameters.AddWithValue("$status", (object?)snapshot.Status ?? DBNull.Value);
+        await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ProjectStateSnapshot>> GetSnapshotsAsync(Guid projectId, int limit = 40, CancellationToken cancellationToken = default)
+    {
+        var result = new List<ProjectStateSnapshot>();
+        using var lease = await LeaseAsync(cancellationToken);
+        var command = lease.Connection.CreateCommand();
+        command.CommandText = "SELECT ProjectId,CapturedAt,Branch,Head,ModifiedFileCount,Ahead,Behind,LastCommitAt,LastCommitSubject,Status FROM ProjectSnapshot WHERE ProjectId=$id ORDER BY CapturedAt DESC LIMIT $limit";
+        command.Parameters.AddWithValue("$id", projectId.ToString()); command.Parameters.AddWithValue("$limit", limit);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) result.Add(ReadSnapshot(reader));
+        return result;
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ProjectStateSnapshot>> GetLatestSnapshotsAsync(CancellationToken cancellationToken = default)
+    {
+        var result = new Dictionary<Guid, ProjectStateSnapshot>();
+        using var lease = await LeaseAsync(cancellationToken);
+        var command = lease.Connection.CreateCommand();
+        command.CommandText = """
+            SELECT ProjectId,CapturedAt,Branch,Head,ModifiedFileCount,Ahead,Behind,LastCommitAt,LastCommitSubject,Status FROM ProjectSnapshot
+            WHERE Id IN (SELECT MAX(Id) FROM ProjectSnapshot GROUP BY ProjectId)
+            """;
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken)) { var snapshot = ReadSnapshot(reader); result[snapshot.ProjectId] = snapshot; }
+        return result;
+    }
+
+    private static ProjectStateSnapshot ReadSnapshot(SqliteDataReader reader) => new(
+        Guid.Parse(reader.GetString(0)), DateTimeOffset.Parse(reader.GetString(1)),
+        reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3),
+        (int)reader.GetInt64(4), (int)reader.GetInt64(5), (int)reader.GetInt64(6),
+        reader.IsDBNull(7) ? null : DateTimeOffset.Parse(reader.GetString(7)),
+        reader.IsDBNull(8) ? null : reader.GetString(8), reader.IsDBNull(9) ? null : reader.GetString(9));
+
+    private static bool Same(SqliteDataReader reader, int ordinal, string? value) =>
+        (reader.IsDBNull(ordinal) ? null : reader.GetString(ordinal)) == value;
 
     private static async Task ExecuteAsync(SqliteConnection connection, SqliteTransaction transaction, string sql, Guid projectId, CancellationToken cancellationToken)
     { var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = sql; command.Parameters.AddWithValue("$id", projectId.ToString()); await command.ExecuteNonQueryAsync(cancellationToken); }
