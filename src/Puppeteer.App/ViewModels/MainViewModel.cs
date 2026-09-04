@@ -11,6 +11,31 @@ public sealed class MainViewModel:ObservableObject
  private readonly List<Project> _allProjects=[]; private string _search=""; private string _selectedType="All"; private string _selectedTechnology="All"; private string _selectedCategory="All"; private string _currentPage="Projects"; private Project? _selectedProject; private TerminalSessionViewModel? _selectedSession; private bool _terminalOpen; private bool _isBusy; private string _status="Ready"; private string _defaultShell="powershell.exe";
  public ObservableCollection<Project> Projects{get;}=[]; public ObservableCollection<string> Types{get;}=[]; public ObservableCollection<string> TechnologyOptions{get;}=[]; public ObservableCollection<string> CategoryOptions{get;}=[]; public ObservableCollection<RootFolder> Roots{get;}=[]; public ObservableCollection<TerminalSessionViewModel> Sessions{get;}=[]; public ObservableCollection<IconCandidate> IconCandidates{get;}=[];
  public string Search{get=>_search;set{if(Set(ref _search,value))Refresh();}} public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value))SavePref("LastPage",value);}} public Project? SelectedProject{get=>_selectedProject;set{if(_refreshing)return;if(!Set(ref _selectedProject,value))return;IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));_=LoadGitForAsync(value);}}
+ /// <summary>Reads git status for every project off the UI thread, a few at a time, and folds the
+ /// results back in one pass. Scanning used to do this inline — a child process per project, in
+ /// series — which made adding a root feel frozen and left the status stale from then on.</summary>
+ public async Task RefreshGitAsync()
+ {
+  var targets=_allProjects.Where(p=>Directory.Exists(p.Path)).ToArray();
+  if(targets.Length==0)return;
+  using var gate=new SemaphoreSlim(Math.Max(2,Environment.ProcessorCount/2));
+  var results=await Task.WhenAll(targets.Select(async project=>{
+   await gate.WaitAsync();
+   try{return (project.Id,Status:await _git.GetStatusAsync(project.Path));}
+   catch{return (project.Id,Status:null);}
+   finally{gate.Release();}
+  }));
+  var changed=false;
+  foreach(var (id,status) in results)
+  {
+   if(status is null)continue;
+   var i=_allProjects.FindIndex(p=>p.Id==id);
+   if(i<0||_allProjects[i].Git==status)continue;
+   _allProjects[i]=_allProjects[i] with{Git=status};
+   changed=true;
+  }
+  if(changed)Refresh();
+ }
  private async Task LoadGitForAsync(Project? project){if(project is null||project.Git is not null||!Directory.Exists(project.Path))return;GitStatus? status;try{status=await _git.GetStatusAsync(project.Path);}catch{return;}if(status is null)return;var i=_allProjects.FindIndex(p=>p.Id==project.Id);if(i>=0)_allProjects[i]=_allProjects[i] with{Git=status};if(_selectedProject?.Id==project.Id){_selectedProject=_selectedProject with{Git=status};Raise(nameof(SelectedProject));Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));}}
  public bool HasMoreGitFiles=>_selectedProject?.Git is {Files: not null} g&&g.ModifiedFileCount>g.Files.Count;
  public int MoreGitFileCount=>_selectedProject?.Git is {Files: not null} g?Math.Max(0,g.ModifiedFileCount-g.Files.Count):0; public TerminalSessionViewModel? SelectedSession{get=>_selectedSession;set{if(Set(ref _selectedSession,value)&&value is not null)TerminalOpen=true;}} public bool TerminalOpen{get=>_terminalOpen;set=>Set(ref _terminalOpen,value);} public bool IsBusy{get=>_isBusy;set=>Set(ref _isBusy,value);} public string Status{get=>_status;set{if(Set(ref _status,value))ShowToast();}} public string DefaultShell{get=>_defaultShell;set{if(Set(ref _defaultShell,value))SavePref("DefaultShell",value);}}
@@ -71,7 +96,7 @@ public sealed class MainViewModel:ObservableObject
    RebuildTree();Refresh();
    SelectedProject=Projects.FirstOrDefault(p=>p.Id==current)??Projects.FirstOrDefault();
    Status=$"Rescanned {_allProjects.Count} projects";
-   _=ClassifyUncategorizedAsync();
+   _=ClassifyUncategorizedAsync();_=RefreshGitAsync();
   }
   catch(Exception e){Status=e.Message;}
   finally{IsBusy=false;}
@@ -83,7 +108,7 @@ public sealed class MainViewModel:ObservableObject
   _currentPage=await _repository.GetSettingAsync("LastPage")??_currentPage;Raise(nameof(CurrentPage));
   _autoClassify=await _repository.GetSettingAsync("AutoClassify")!="0";Raise(nameof(AutoClassify));
   Converters.PinStore.Ids.Clear();foreach(var id in (await _repository.GetSettingAsync("Pinned")??"").Split(',',StringSplitOptions.RemoveEmptyEntries))if(Guid.TryParse(id,out var g))Converters.PinStore.Ids.Add(g);
-  Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();}
+  Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();_=RefreshGitAsync();}
  // Projects indexed before categories existed carry a null category; fill in what the offline path
  // heuristic can decide so filters are useful immediately, without waiting on a rescan or the LLM.
  private async Task BackfillCategoriesAsync(){for(var i=0;i<_allProjects.Count;i++){var p=_allProjects[i];if(!string.IsNullOrWhiteSpace(p.Category))continue;var category=ProjectCategoryRules.FromPath(p.Path);if(category is null)continue;_allProjects[i]=p with{Category=category};await _repository.SetProjectCategoryAsync(p.Id,category);}}
@@ -112,7 +137,7 @@ public sealed class MainViewModel:ObservableObject
   var full=Path.GetFullPath(path);
   if(Roots.Any(r=>r.Path.Equals(full,StringComparison.OrdinalIgnoreCase))){Status="That folder is already a root.";return;}
   IsBusy=true;Status="Scanning root…";
-  try{var root=new RootFolder(Guid.NewGuid(),full,DateTimeOffset.UtcNow);await _repository.AddRootAsync(root);Roots.Add(root);var scanned=await _scanner.ScanAsync(root);await _repository.UpsertProjectsAsync(scanned);_allProjects.RemoveAll(p=>p.RootId==root.Id);_allProjects.AddRange(scanned);await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status=$"Found {scanned.Count} projects";_=ClassifyUncategorizedAsync();}
+  try{var root=new RootFolder(Guid.NewGuid(),full,DateTimeOffset.UtcNow);await _repository.AddRootAsync(root);Roots.Add(root);var scanned=await _scanner.ScanAsync(root);await _repository.UpsertProjectsAsync(scanned);_allProjects.RemoveAll(p=>p.RootId==root.Id);_allProjects.AddRange(scanned);await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status=$"Found {scanned.Count} projects";_=ClassifyUncategorizedAsync();_=RefreshGitAsync();}
   catch(Exception e){Status=e.Message;}finally{IsBusy=false;}}
  private async Task RemoveRootAsync(RootFolder? root){if(root is null)return;await _repository.RemoveRootAsync(root.Id);Roots.Remove(root);_allProjects.RemoveAll(p=>p.RootId==root.Id);RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status="Root removed from Puppeteer; project files were not changed.";}
  private void OpenFolder(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenFolder(project.Path);MarkOpened(project);Status=$"Opened {project.Name} in Explorer";}else Status=$"{project.Name} no longer exists on disk.";}
