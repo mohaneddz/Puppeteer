@@ -412,6 +412,13 @@
                         <ItemsPanelTemplate><controls:VirtualizingWrapPanel ItemWidth="{Binding DataContext.CardWidth, RelativeSource={RelativeSource AncestorType=Window}}" ItemHeight="{Binding DataContext.CardHeight, RelativeSource={RelativeSource AncestorType=Window}}"/></ItemsPanelTemplate>
                       </Setter.Value>
                     </Setter>
+                    <!-- Both templates live in the style: a locally-set ItemTemplate on the ListBox
+                         would outrank the trigger below and pin the view to cards in both modes. -->
+                    <Setter Property="ItemTemplate">
+                      <Setter.Value>
+                        <DataTemplate><controls:ProjectCard/></DataTemplate>
+                      </Setter.Value>
+                    </Setter>
                     <Style.Triggers>
                       <DataTrigger Binding="{Binding ViewMode}" Value="List">
                         <Setter Property="ItemsPanel">
@@ -419,13 +426,15 @@
                             <ItemsPanelTemplate><VirtualizingStackPanel Orientation="Vertical"/></ItemsPanelTemplate>
                           </Setter.Value>
                         </Setter>
+                        <Setter Property="ItemTemplate">
+                          <Setter.Value>
+                            <DataTemplate><controls:ProjectRow/></DataTemplate>
+                          </Setter.Value>
+                        </Setter>
                       </DataTrigger>
                     </Style.Triggers>
                   </Style>
                 </ListBox.Style>
-                <ListBox.ItemTemplate>
-                  <DataTemplate><controls:ProjectCard/></DataTemplate>
-                </ListBox.ItemTemplate>
               </ListBox>
               <!-- Empty: no roots yet -->
               <StackPanel Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="360"
