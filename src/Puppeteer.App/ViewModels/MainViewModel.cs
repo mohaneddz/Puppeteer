@@ -10,7 +10,7 @@ public sealed class MainViewModel:ObservableObject
  private readonly IProjectRepository _repository; private readonly IProjectScanner _scanner; private readonly ProjectSearchService _searchService; private readonly ITerminalService _terminalService; private readonly IProjectLauncher _launcher; private readonly IIconDiscoveryService _icons; private readonly IFilePicker _picker; private readonly IProjectClassifier _classifier; private readonly AppConfig _config; private readonly IGitMetadataService _git;
  private readonly List<Project> _allProjects=[]; private string _search=""; private string _selectedType="All"; private string _selectedTechnology="All"; private string _selectedCategory="All"; private string _currentPage="Projects"; private Project? _selectedProject; private TerminalSessionViewModel? _selectedSession; private bool _terminalOpen; private bool _isBusy; private string _status="Ready"; private string _defaultShell="powershell.exe";
  public ObservableCollection<Project> Projects{get;}=[]; public ObservableCollection<string> Types{get;}=[]; public ObservableCollection<string> TechnologyOptions{get;}=[]; public ObservableCollection<string> CategoryOptions{get;}=[]; public ObservableCollection<RootFolder> Roots{get;}=[]; public ObservableCollection<TerminalSessionViewModel> Sessions{get;}=[]; public ObservableCollection<IconCandidate> IconCandidates{get;}=[];
- public string Search{get=>_search;set{if(Set(ref _search,value))Refresh();}} public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value))SavePref("LastPage",value);}} public Project? SelectedProject{get=>_selectedProject;set{Set(ref _selectedProject,value);IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));_=LoadGitForAsync(value);}}
+ public string Search{get=>_search;set{if(Set(ref _search,value))Refresh();}} public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value))SavePref("LastPage",value);}} public Project? SelectedProject{get=>_selectedProject;set{if(_refreshing)return;if(!Set(ref _selectedProject,value))return;IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));_=LoadGitForAsync(value);}}
  private async Task LoadGitForAsync(Project? project){if(project is null||project.Git is not null||!Directory.Exists(project.Path))return;GitStatus? status;try{status=await _git.GetStatusAsync(project.Path);}catch{return;}if(status is null)return;var i=_allProjects.FindIndex(p=>p.Id==project.Id);if(i>=0)_allProjects[i]=_allProjects[i] with{Git=status};if(_selectedProject?.Id==project.Id){_selectedProject=_selectedProject with{Git=status};Raise(nameof(SelectedProject));Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));}}
  public bool HasMoreGitFiles=>_selectedProject?.Git is {Files: not null} g&&g.ModifiedFileCount>g.Files.Count;
  public int MoreGitFileCount=>_selectedProject?.Git is {Files: not null} g?Math.Max(0,g.ModifiedFileCount-g.Files.Count):0; public TerminalSessionViewModel? SelectedSession{get=>_selectedSession;set{if(Set(ref _selectedSession,value)&&value is not null)TerminalOpen=true;}} public bool TerminalOpen{get=>_terminalOpen;set=>Set(ref _terminalOpen,value);} public bool IsBusy{get=>_isBusy;set=>Set(ref _isBusy,value);} public string Status{get=>_status;set{if(Set(ref _status,value))ShowToast();}} public string DefaultShell{get=>_defaultShell;set{if(Set(ref _defaultShell,value))SavePref("DefaultShell",value);}}
@@ -43,11 +43,21 @@ public sealed class MainViewModel:ObservableObject
  public MainViewModel(IProjectRepository repository,IProjectScanner scanner,ProjectSearchService searchService,ITerminalService terminalService,IProjectLauncher launcher,IIconDiscoveryService icons,IFilePicker picker,IProjectClassifier classifier,AppConfig config,IGitMetadataService git)
  {
   _repository=repository;_scanner=scanner;_searchService=searchService;_terminalService=terminalService;_launcher=launcher;_icons=icons;_picker=picker;_classifier=classifier;_config=config;_git=git;
-  Sessions.CollectionChanged+=(_,__)=>{Raise(nameof(RunningCount));Raise(nameof(RunningBadge));};
+  Sessions.CollectionChanged+=(_,__)=>{Raise(nameof(RunningCount));Raise(nameof(RunningBadge));Refresh();};
+  StartDurationTicker();
   NavigateCommand=new(p=>CurrentPage=p?.ToString()??"Projects");AddRootCommand=new(_=>AddRootAsync());RemoveRootCommand=new(p=>RemoveRootAsync(p as RootFolder),p=>p is RootFolder);OpenTerminalCommand=new(p=>OpenTerminalAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenFolderCommand=new(p=>OpenFolder(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenIdeCommand=new(p=>OpenIde(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CollapseTerminalCommand=new(_=>TerminalOpen=false);FindIconCommand=new(_=>FindIconsAsync(),_=>SelectedProject is not null);ChangeIconCommand=new(_=>ChangeIconAsync(),_=>SelectedProject is not null);ResetIconCommand=new(_=>SetIconAsync(null),_=>SelectedProject is not null);ChooseCandidateCommand=new(p=>SetIconAsync((p as IconCandidate)?.Path),p=>p is IconCandidate);
   CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.Output.Clear();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);RestartSessionCommand=new(p=>RestartSession(p as TerminalSessionViewModel??SelectedSession),p=>(p as TerminalSessionViewModel??SelectedSession) is not null);StopAllCommand=new(_=>{foreach(var s in Sessions.ToArray())s.StopCommand.Execute(null);Status="Stopped all sessions";},_=>Sessions.Any(s=>s.Running));CopyOutputCommand=new(_=>CopyOutput(),_=>SelectedSession is not null);TogglePinCommand=new(p=>TogglePin(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);ResetLayoutCommand=new(_=>{foreach(var k in new[]{"WindowWidth","WindowHeight","SidebarWidth","DetailsWidth","TerminalHeight","Maximized"})_=_repository.SetSettingAsync(k,null);Status="Window layout will reset next launch";});
   SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);ToggleTerminalCommand=new(_=>TerminalOpen=!TerminalOpen);RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
   ClearFiltersCommand=new(_=>{_selectedFolder=null;Raise(nameof(SelectedFolder));Raise(nameof(FolderFilterActive));_selectedType="All";_selectedTechnology="All";_selectedCategory="All";_search="";Raise(nameof(Search));Refresh();});
+ }
+ // One shared tick advances every session's age label. Sessions don't each own a timer, and the tick
+ // does nothing at all while nothing is running, so an idle app stays idle.
+ private DispatcherTimer? _durations;
+ private void StartDurationTicker()
+ {
+  _durations=new DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};
+  _durations.Tick+=(_,__)=>{ foreach(var session in Sessions) session.TickDuration(); };
+  _durations.Start();
  }
  private async Task RescanAllAsync()
  {
@@ -131,7 +141,8 @@ public sealed class MainViewModel:ObservableObject
    _selectedType=Sync(Types,_searchService.BuildTypes(_allProjects),_selectedType);Raise(nameof(SelectedType));
    _selectedTechnology=Sync(TechnologyOptions,_searchService.BuildTechnologies(_allProjects),_selectedTechnology);Raise(nameof(SelectedTechnology));
    _selectedCategory=Sync(CategoryOptions,_searchService.BuildCategories(_allProjects),_selectedCategory);Raise(nameof(SelectedCategory));
-   var running=Sessions.Where(s=>s.Session is not null&&s.Running).Select(s=>_allProjects.FirstOrDefault(p=>p.Path.Equals(s.Session!.ProjectPath,StringComparison.OrdinalIgnoreCase))?.Id??Guid.Empty).ToHashSet();
+   var byPath=SessionsByProjectPath();
+   var running=_allProjects.Where(p=>byPath.TryGetValue(p.Path,out var s)&&s.Any(x=>x.Running)).Select(p=>p.Id).ToHashSet();
    var scoped=_selectedFolder is null?_allProjects:_allProjects.Where(p=>p.Path.StartsWith(_selectedFolder.Path,StringComparison.OrdinalIgnoreCase));
    var filtered=_searchService.Filter(scoped,Search,_selectedType,_selectedTechnology,_selectedCategory,running);
    var sorted=_sortMode switch{
@@ -139,11 +150,23 @@ public sealed class MainViewModel:ObservableObject
     "Type"=>filtered.OrderBy(ProjectTypeRules.Of,StringComparer.OrdinalIgnoreCase).ThenBy(p=>p.Name,StringComparer.OrdinalIgnoreCase),
     _=>filtered.OrderBy(p=>p.Name,StringComparer.OrdinalIgnoreCase).AsEnumerable()};
    var ordered=sorted.OrderByDescending(p=>Converters.PinStore.Ids.Contains(p.Id));
-   Projects.Clear();foreach(var p in ordered)Projects.Add(p);
+   // Live session state lives in the session view models, not in the stored project rows, so graft it
+   // on here — it is what drives the running dot on a card and the Sessions block in the inspector.
+   var previousId=_selectedProject?.Id;
+   Projects.Clear();
+   foreach(var p in ordered)Projects.Add(byPath.TryGetValue(p.Path,out var sessions)?p with{Sessions=sessions}:p);
+   // Clearing the list makes the ListBox write a null selection back; restore it quietly so typing in
+   // the search box doesn't blank the inspector on every keystroke.
+   _selectedProject=previousId is Guid id?Projects.FirstOrDefault(p=>p.Id==id):null;
+   Raise(nameof(SelectedProject));
    Raise(nameof(HasAnyProjects));
   }
   finally{_refreshing=false;}
  }
+ private Dictionary<string,IReadOnlyList<ProjectSession>> SessionsByProjectPath()=>
+  Sessions.Where(s=>s.Session is not null)
+   .GroupBy(s=>s.Session!.ProjectPath,StringComparer.OrdinalIgnoreCase)
+   .ToDictionary(g=>g.Key,g=>(IReadOnlyList<ProjectSession>)g.Select(s=>new ProjectSession(s.Name,s.Command,s.Duration,s.Running)).ToArray(),StringComparer.OrdinalIgnoreCase);
  private static string Sync(ObservableCollection<string> target,IReadOnlyList<string> values,string keep)
  {
   if(!target.SequenceEqual(values,StringComparer.OrdinalIgnoreCase)){target.Clear();foreach(var v in values)target.Add(v);}

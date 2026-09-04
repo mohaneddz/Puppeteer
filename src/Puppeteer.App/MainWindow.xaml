@@ -472,10 +472,25 @@
                           <TextBlock Text="{Binding ProjectName}" FontWeight="SemiBold" FontSize="14.5"/>
                           <TextBlock Text="{Binding Command}" Style="{StaticResource MutedText}" FontFamily="{StaticResource MonoFont}" Margin="0,3,0,0"/>
                         </StackPanel>
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12" Text="running" Foreground="{StaticResource SuccessBrush}"
-                                   Visibility="{Binding Running, Converter={StaticResource BoolVis}}"/>
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" FontSize="12" Text="exited" Foreground="{StaticResource MutedTextBrush}"
-                                   Visibility="{Binding Running, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Duration}" FontSize="12" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource MutedTextBrush}" VerticalAlignment="Center"/>
+                          <Border Margin="12,0,0,0" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="8,3">
+                            <TextBlock FontSize="11" Text="running" Foreground="{StaticResource SuccessBrush}"
+                                       Visibility="{Binding Running, Converter={StaticResource BoolVis}}"/>
+                          </Border>
+                          <Border Margin="12,0,0,0" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="8,3"
+                                  Visibility="{Binding Running, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}">
+                            <TextBlock FontSize="11" Text="exited" Foreground="{StaticResource MutedTextBrush}"/>
+                          </Border>
+                          <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="8,0,0,0" ToolTip="Stop process"
+                                  Command="{Binding StopCommand}" Visibility="{Binding Running, Converter={StaticResource BoolVis}}">
+                            <Path Data="{StaticResource IconStop}" Width="11" Height="11" Stroke="{StaticResource DangerBrush}" StrokeThickness="1.6" Stretch="Uniform"/>
+                          </Button>
+                          <Button Style="{StaticResource IconButton}" Width="28" Height="28" Margin="2,0,0,0" ToolTip="Close session"
+                                  Command="{Binding DataContext.CloseSessionCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}">
+                            <Path Data="{StaticResource IconClose}" Width="10" Height="10" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                          </Button>
+                        </StackPanel>
                       </Grid>
                     </Border>
                   </DataTemplate>

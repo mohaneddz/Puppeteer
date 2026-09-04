@@ -22,6 +22,27 @@ public sealed class TerminalSessionViewModel : ObservableObject
     private bool _running;
     public bool Running { get => _running; private set => Set(ref _running, value); }
 
+    private DateTimeOffset? _stoppedAt;
+
+    /// <summary>How long the session has been alive, as a compact "3m" / "2h 14m" label. A stopped
+    /// session freezes at the age it reached, rather than counting on forever.</summary>
+    public string Duration
+    {
+        get
+        {
+            if (Session is null) return "";
+            var elapsed = (_stoppedAt ?? DateTimeOffset.UtcNow) - Session.StartedAt;
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+            if (elapsed.TotalMinutes < 1) return $"{(int)elapsed.TotalSeconds}s";
+            if (elapsed.TotalHours < 1) return $"{(int)elapsed.TotalMinutes}m";
+            return $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m";
+        }
+    }
+
+    /// <summary>Called by the shared one-second tick so every visible duration advances together
+    /// instead of each session owning a timer.</summary>
+    public void TickDuration() { if (Running) Raise(nameof(Duration)); }
+
     private string _input = "";
     public string Input { get => _input; set => Set(ref _input, value); }
 
@@ -34,7 +55,8 @@ public sealed class TerminalSessionViewModel : ObservableObject
         Name = session.Name;
         ProjectName = Path.GetFileName(session.ProjectPath.TrimEnd(Path.DirectorySeparatorChar));
         ProjectPath = session.ProjectPath;
-        Command = session.Shell;
+        // A preset session is identified by what it runs; a bare shell only has its shell to show.
+        Command = string.IsNullOrWhiteSpace(session.Command) ? session.Shell : session.Command!;
         Accent = accent ?? (Brush)Application.Current.Resources["SuccessBrush"];
         _running = session.State == TerminalSessionState.Running;
         SendCommand = new(_ => _ = SendAsync(), _ => Running);
@@ -42,7 +64,9 @@ public sealed class TerminalSessionViewModel : ObservableObject
         session.OutputReceived += (_, line) => Application.Current.Dispatcher.BeginInvoke(() => Append(line));
         session.Exited += (_, _) => Application.Current.Dispatcher.BeginInvoke(() =>
         {
+            _stoppedAt = DateTimeOffset.UtcNow;
             Running = false;
+            Raise(nameof(Duration));
             Append("[process exited]");
         });
     }
