@@ -24,13 +24,29 @@ Built with **.NET 10** and **WPF**.
 - Interactive terminals backed by real processes, opened in the project's directory. Type commands, run detected presets, split panes to see several shells at once, or go fullscreen.
 - Stop, restart, clear and copy per session; the terminal panel is resizable and collapsible.
 - Open a project in Explorer or your IDE, or copy its path.
-- Live Git status (branch and pending changes) for the selected project.
+- Live Git status: a dot on every card with uncommitted changes, refreshed in the background after each load, and the branch plus changed files in the inspector.
+
+**Living in the tray**
+- A notification-area icon that reports how many sessions are live, with Open, New terminal and Quit.
+- Minimize and/or close to the tray instead of quitting; a warning before quitting stops running terminals.
+- Start with Windows via the per-user Run key — no elevation, revocable from Task Manager's Startup tab — optionally straight to the tray.
 
 **Slice-of-life**
+- Grid and list views: cards for browsing, compact rows for scanning a long library.
 - Resizable, collapsible sidebar / details panels; the app remembers your window size, panel widths, view, sort and last page.
-- Keyboard: `Ctrl+K` search, `Ctrl+N` new terminal, <code>Ctrl+&#96;</code> toggle terminal, `Ctrl+R` rescan, `Esc` clear/close.
+- Keyboard: `Ctrl+K` search, `Ctrl+N` new terminal, <code>Ctrl+&#96;</code> toggle terminal, `Ctrl+R` rescan, `Esc` clear/close. Shell bindings win while the caret is in a terminal.
 - Ranked project-icon discovery across common asset folders, without touching project files.
 - Everything (roots, projects, icons, presets, pins, preferences) persists in a local SQLite database.
+
+## Settings
+
+- **Roots** — add and remove the folders Puppeteer scans.
+- **Startup & notification area** — launch with Windows, start hidden, minimize to tray, close to tray.
+- **Terminal** — default shell, scrollback depth, whether to confirm quitting with sessions running.
+- **Appearance** — comfortable or compact card density.
+- **Tools** — an Open-in-IDE command (`code`, `rider`, `subl`), or leave it blank for the shell default.
+- **AI categorization** — see below.
+- **Data** — reset the window layout, or open the folder holding the database.
 
 ## AI categorization
 
