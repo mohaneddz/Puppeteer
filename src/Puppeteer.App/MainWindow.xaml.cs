@@ -88,14 +88,24 @@ public partial class MainWindow : Window
         if (await Vm.GetPrefAsync("Maximized") == "1") WindowState = WindowState.Maximized;
     }
 
+    // Written as one awaited batch rather than a handful of fire-and-forget writes: this runs as the
+    // window closes, and anything still in flight when the process exits is simply lost.
     private void SaveLayout()
     {
         var restore = RestoreBounds;
-        Vm.SavePref("Maximized", WindowState == WindowState.Maximized ? "1" : "0");
-        if (!restore.IsEmpty) { Vm.SavePref("WindowWidth", restore.Width.ToString("F0")); Vm.SavePref("WindowHeight", restore.Height.ToString("F0")); }
-        if (SidebarColumn.ActualWidth > 0) Vm.SavePref("SidebarWidth", SidebarColumn.ActualWidth.ToString("F0"));
-        if (DetailsColumn.ActualWidth > 0) Vm.SavePref("DetailsWidth", DetailsColumn.ActualWidth.ToString("F0"));
-        if (TerminalRow.ActualHeight > 80) Vm.SavePref("TerminalHeight", TerminalRow.ActualHeight.ToString("F0"));
+        var values = new Dictionary<string, string?>
+        {
+            ["Maximized"] = WindowState == WindowState.Maximized ? "1" : "0",
+        };
+        if (!restore.IsEmpty)
+        {
+            values["WindowWidth"] = restore.Width.ToString("F0");
+            values["WindowHeight"] = restore.Height.ToString("F0");
+        }
+        if (SidebarColumn.ActualWidth > 0) values["SidebarWidth"] = SidebarColumn.ActualWidth.ToString("F0");
+        if (DetailsColumn.ActualWidth > 0) values["DetailsWidth"] = DetailsColumn.ActualWidth.ToString("F0");
+        if (TerminalRow.ActualHeight > 80) values["TerminalHeight"] = TerminalRow.ActualHeight.ToString("F0");
+        try { Vm.SavePrefsAsync(values).GetAwaiter().GetResult(); } catch { }
     }
 
     private void CaptureAndExit(string path)

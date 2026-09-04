@@ -4,7 +4,7 @@ using Puppeteer.Core;
 
 namespace Puppeteer.Infrastructure;
 
-public sealed class SqliteProjectRepository : IProjectRepository
+public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
 {
     private readonly string _connectionString;
     public SqliteProjectRepository(string databasePath)
@@ -15,10 +15,12 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand();
         command.CommandText = """
             PRAGMA journal_mode=WAL;
+            PRAGMA synchronous=NORMAL;
             CREATE TABLE IF NOT EXISTS RootFolder(Id TEXT PRIMARY KEY, Path TEXT NOT NULL UNIQUE, CreatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS Project(Id TEXT PRIMARY KEY, Name TEXT NOT NULL, Path TEXT NOT NULL UNIQUE, RootId TEXT NOT NULL,
                 PrimaryTechnology TEXT NOT NULL, TechnologiesJson TEXT NOT NULL, HierarchyJson TEXT NOT NULL, PresetsJson TEXT NOT NULL,
@@ -43,7 +45,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
     public async Task<IReadOnlyList<RootFolder>> GetRootsAsync(CancellationToken cancellationToken = default)
     {
         var result = new List<RootFolder>();
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "SELECT Id, Path, CreatedAt FROM RootFolder ORDER BY Path";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken)) result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), DateTimeOffset.Parse(reader.GetString(2))));
@@ -52,7 +55,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task AddRootAsync(RootFolder root, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand();
         command.CommandText = "INSERT OR IGNORE INTO RootFolder(Id, Path, CreatedAt) VALUES($id,$path,$created)";
         command.Parameters.AddWithValue("$id", root.Id.ToString()); command.Parameters.AddWithValue("$path", root.Path); command.Parameters.AddWithValue("$created", root.CreatedAt.ToString("O"));
@@ -61,7 +65,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task RemoveRootAsync(Guid rootId, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         foreach (var sql in new[] { "DELETE FROM Project WHERE RootId=$id", "DELETE FROM RootFolder WHERE Id=$id" })
         { var command = connection.CreateCommand(); command.Transaction = (SqliteTransaction)transaction; command.CommandText = sql; command.Parameters.AddWithValue("$id", rootId.ToString()); await command.ExecuteNonQueryAsync(cancellationToken); }
@@ -71,7 +76,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
     public async Task<IReadOnlyList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
         var result = new List<Project>();
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand();
         command.CommandText = "SELECT Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category FROM Project ORDER BY Name";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -86,7 +92,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task UpsertProjectsAsync(IEnumerable<Project> projects, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         foreach (var project in projects)
         {
@@ -128,7 +135,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task SetProjectIconAsync(Guid projectId, string? iconPath, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET CustomIconPath=$path,UpdatedAt=$updated WHERE Id=$id";
         command.Parameters.AddWithValue("$path", (object?)iconPath ?? DBNull.Value); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -140,7 +148,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET Category=$category,UpdatedAt=$updated WHERE Id=$id";
         command.Parameters.AddWithValue("$category", (object?)category ?? DBNull.Value); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -148,7 +157,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET LastOpenedAt=$opened WHERE Id=$id";
         command.Parameters.AddWithValue("$opened", openedAt.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -156,7 +166,8 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "SELECT Value FROM AppSetting WHERE Key=$key";
         command.Parameters.AddWithValue("$key", key);
         var value = await command.ExecuteScalarAsync(cancellationToken);
@@ -165,11 +176,29 @@ public sealed class SqliteProjectRepository : IProjectRepository
 
     public async Task SetSettingAsync(string key, string? value, CancellationToken cancellationToken = default)
     {
-        await using var connection = await OpenAsync(cancellationToken);
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
         var command = connection.CreateCommand();
         command.CommandText = string.IsNullOrEmpty(value) ? "DELETE FROM AppSetting WHERE Key=$key" : "INSERT OR REPLACE INTO AppSetting(Key,Value) VALUES($key,$value)";
         command.Parameters.AddWithValue("$key", key); command.Parameters.AddWithValue("$value", (object?)value ?? DBNull.Value);
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    public async Task SetSettingsAsync(IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default)
+    {
+        if (values.Count == 0) return;
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+        foreach (var (key, value) in values)
+        {
+            var command = connection.CreateCommand();
+            command.Transaction = (SqliteTransaction)transaction;
+            command.CommandText = string.IsNullOrEmpty(value) ? "DELETE FROM AppSetting WHERE Key=$key" : "INSERT OR REPLACE INTO AppSetting(Key,Value) VALUES($key,$value)";
+            command.Parameters.AddWithValue("$key", key); command.Parameters.AddWithValue("$value", (object?)value ?? DBNull.Value);
+            await command.ExecuteNonQueryAsync(cancellationToken);
+        }
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private static async Task ExecuteAsync(SqliteConnection connection, SqliteTransaction transaction, string sql, Guid projectId, CancellationToken cancellationToken)
@@ -178,6 +207,33 @@ public sealed class SqliteProjectRepository : IProjectRepository
     private static async Task InsertPairAsync(SqliteConnection connection, SqliteTransaction transaction, string table, Guid projectId, string value, CancellationToken cancellationToken)
     { var command = connection.CreateCommand(); command.Transaction = transaction; command.CommandText = $"INSERT OR REPLACE INTO {table}(ProjectId,Name) VALUES($id,$name)"; command.Parameters.AddWithValue("$id", projectId.ToString()); command.Parameters.AddWithValue("$name", value); await command.ExecuteNonQueryAsync(cancellationToken); }
 
-    private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
-    { var connection = new SqliteConnection(_connectionString); await connection.OpenAsync(cancellationToken); return connection; }
+    // One connection, opened once and held for the life of the app, serialized by a gate. Opening a
+    // SqliteConnection per call meant every preference write — and there is one per panel resize,
+    // sort change and window close — paid to reopen the database file.
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private SqliteConnection? _connection;
+
+    private async Task<Lease> LeaseAsync(CancellationToken cancellationToken)
+    {
+        await _gate.WaitAsync(cancellationToken);
+        if (_connection is null)
+        {
+            _connection = new SqliteConnection(_connectionString);
+            await _connection.OpenAsync(cancellationToken);
+        }
+        return new Lease(this);
+    }
+
+    private readonly struct Lease(SqliteProjectRepository owner) : IDisposable
+    {
+        public SqliteConnection Connection => owner._connection!;
+        public void Dispose() => owner._gate.Release();
+    }
+
+    public void Dispose()
+    {
+        _connection?.Dispose();
+        _connection = null;
+        _gate.Dispose();
+    }
 }

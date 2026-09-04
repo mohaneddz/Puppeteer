@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
+using Media = System.Windows.Media;
 using Puppeteer.Core;
 
 namespace Puppeteer.App.Converters;
@@ -201,18 +202,13 @@ public sealed class ProjectTypeConverter : IValueConverter
 
 public sealed class TechIconBrushConverter : IValueConverter
 {
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
-        new SolidColorBrush(Tech.Color(value?.ToString()));
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c) => Tech.Brush(value?.ToString());
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
 public sealed class TechIconTintConverter : IValueConverter
 {
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
-    {
-        var col = Tech.Color(value?.ToString());
-        return new SolidColorBrush(Color.FromArgb(38, col.R, col.G, col.B));
-    }
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c) => Tech.TintBrush(value?.ToString());
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
@@ -224,9 +220,31 @@ public sealed class TechMonogramConverter : IValueConverter
 
 internal static class Tech
 {
+    // Brushes are cached and frozen: these converters run for every card the grid realizes, and an
+    // unfrozen SolidColorBrush per call means a fresh allocation and a change listener each time.
+    private static readonly Dictionary<string, Brush> Solid = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, Brush> Tint = new(StringComparer.OrdinalIgnoreCase);
+
+    public static Brush Brush(string? tech) => Cached(Solid, tech, c => new SolidColorBrush(c));
+
+    public static Brush TintBrush(string? tech) => Cached(Tint, tech, c => new SolidColorBrush(Media.Color.FromArgb(38, c.R, c.G, c.B)));
+
+    private static Brush Cached(Dictionary<string, Brush> cache, string? tech, Func<Color, SolidColorBrush> make)
+    {
+        var key = tech ?? "";
+        lock (cache)
+        {
+            if (cache.TryGetValue(key, out var brush)) return brush;
+            var created = make(Color(tech));
+            created.Freeze();
+            cache[key] = created;
+            return created;
+        }
+    }
+
     public static Color Color(string? tech) => tech switch
     {
-        "Tauri" => FromHex("#24C8DB"),
+        "Tauri" => FromHex("#FFC131"),
         "Flutter" => FromHex("#54C5F8"),
         "Next.js" => FromHex("#E8ECF1"),
         "Qt" => FromHex("#41CD52"),

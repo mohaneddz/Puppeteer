@@ -23,6 +23,9 @@ public interface IProjectRepository
     Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default);
     Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default);
     Task SetSettingAsync(string key, string? value, CancellationToken cancellationToken = default);
+    /// <summary>Writes several settings in one transaction. Used for snapshots that must land
+    /// together and promptly — the window layout saved during shutdown, above all.</summary>
+    Task SetSettingsAsync(IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Classifies a project's purpose (personal / client / hackathon / course / work) from its
