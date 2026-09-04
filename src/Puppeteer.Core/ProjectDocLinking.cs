@@ -157,8 +157,10 @@ public enum DocDrift
 public sealed record DocDriftReport(Guid ProjectId, DocDrift Drift, IReadOnlyList<string> Reasons)
 {
     public bool Any => Drift != DocDrift.None;
-    /// <summary>Drift the doc itself can fix, as opposed to facts about the repo's current state.</summary>
-    public bool NeedsWriteup => (Drift & (DocDrift.NoDoc | DocDrift.StaleLocation | DocDrift.StaleStack | DocDrift.StaleActivity | DocDrift.NoStatus | DocDrift.EmptySections)) != 0;
+    /// <summary>Drift the doc itself can fix, as opposed to facts about the repo's current state.
+    /// A missing Status field is reported but deliberately excluded: it is an optional field, and
+    /// counting it would mark every doc written before Puppeteer knew about it as needing work.</summary>
+    public bool NeedsWriteup => (Drift & (DocDrift.NoDoc | DocDrift.StaleLocation | DocDrift.StaleStack | DocDrift.StaleActivity | DocDrift.EmptySections)) != 0;
 }
 
 public static class ProjectDocDrift

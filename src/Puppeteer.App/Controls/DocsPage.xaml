@@ -74,7 +74,7 @@
                 BorderThickness="1" CornerRadius="8" Padding="10,0">
           <Grid>
             <TextBlock Text="Filter docs…" Style="{StaticResource MutedText}" VerticalAlignment="Center" IsHitTestVisible="False"
-                       Visibility="{Binding DocSearch, Converter={StaticResource EmptyVis}}"/>
+                       Visibility="{Binding DocSearch, Converter={StaticResource EmptyVis}, ConverterParameter=Inverse}"/>
             <TextBox Text="{Binding DocSearch, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0"
                      Padding="0,7" VerticalContentAlignment="Center"/>
           </Grid>
@@ -105,7 +105,7 @@
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto" MaxWidth="230"/>
               </Grid.ColumnDefinitions>
               <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,6,0,0"
                        Fill="{Binding Status, Converter={StaticResource DocStatusBrush}}" ToolTip="{Binding Status}"/>
@@ -131,7 +131,8 @@
                            Visibility="{Binding NeedsWriteup, Converter={StaticResource DriftVis}}"/>
               </StackPanel>
               <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                <TextBlock Text="{Binding Activity}" HorizontalAlignment="Right" Style="{StaticResource MutedText}" FontSize="11.5"/>
+                <TextBlock Text="{Binding Activity}" HorizontalAlignment="Right" TextAlignment="Right" Style="{StaticResource MutedText}"
+                           FontSize="11.5" TextTrimming="CharacterEllipsis" MaxWidth="230" ToolTip="{Binding Activity}"/>
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,7,0,0">
                   <Button Padding="10,6" ToolTip="Open this doc in your editor"
                           Command="{Binding DataContext.OpenDocCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"

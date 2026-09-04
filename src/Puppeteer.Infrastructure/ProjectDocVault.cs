@@ -26,9 +26,9 @@ public sealed class ProjectDocVault : IProjectDocVault
         VaultPath = string.IsNullOrWhiteSpace(vaultPath) || !Directory.Exists(vaultPath) ? null : Path.GetFullPath(vaultPath);
         if (VaultPath is null) return;
         _watcher = new FileSystemWatcher(VaultPath, "*.md") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size };
-        FileSystemEventHandler changed = (_, e) => Changed?.Invoke(this, e.FullPath);
+        FileSystemEventHandler changed = (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
         _watcher.Created += changed; _watcher.Deleted += changed; _watcher.Changed += changed;
-        _watcher.Renamed += (_, e) => Changed?.Invoke(this, e.FullPath);
+        _watcher.Renamed += (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
         _watcher.EnableRaisingEvents = true;
     }
 
@@ -47,18 +47,21 @@ public sealed class ProjectDocVault : IProjectDocVault
     public Task<ProjectDoc?> ReadAsync(string docPath, CancellationToken cancellationToken = default) =>
         Task.Run(() => ReadDoc(docPath), cancellationToken);
 
-    public Task<DocWriteResult> WriteAsync(ProjectDoc doc, DateTimeOffset? expectedModifiedAt, CancellationToken cancellationToken = default) => Task.Run(() =>
+    public Task<DocWriteResult> WriteAsync(ProjectDoc doc, CancellationToken cancellationToken = default) => Task.Run(() =>
     {
         if (VaultPath is null) return new DocWriteResult(DocWriteOutcome.NoVault, null, "No docs folder is set.");
         try
         {
             var existed = File.Exists(doc.FilePath);
-            if (existed && expectedModifiedAt is { } expected && Modified(doc.FilePath) > expected.AddSeconds(1))
-                return new DocWriteResult(DocWriteOutcome.Conflict, ReadDoc(doc.FilePath), "The doc changed on disk since it was opened.");
+            // Compare the text, not the timestamp. A modified time has to be given slack for
+            // filesystem rounding, and any slack is a window in which an outside edit is lost.
+            if (existed && Current(doc.FilePath) != doc.Raw)
+                return new DocWriteResult(DocWriteOutcome.Conflict, ReadDoc(doc.FilePath),
+                    doc.Raw.Length == 0 ? "A doc already exists at that path." : "The doc changed on disk since it was opened.");
 
             Directory.CreateDirectory(Path.GetDirectoryName(doc.FilePath)!);
             var text = ProjectDocFormat.Render(doc);
-            var temporary = doc.FilePath + ".puppeteer.tmp";
+            var temporary = doc.FilePath + TemporarySuffix;
             File.WriteAllText(temporary, text, new UTF8Encoding(false));
             if (existed) File.Replace(temporary, doc.FilePath, null);
             else File.Move(temporary, doc.FilePath);
@@ -93,6 +96,13 @@ public sealed class ProjectDocVault : IProjectDocVault
 
     public void Dispose() { _watcher?.Dispose(); _watcher = null; }
 
+    /// <summary>A watcher filtered to "*.md" still reports Windows' replace temporaries, which are
+    /// named after the file they are replacing — Hive.md~RF3a1.TMP — and are not docs.</summary>
+    private static bool IsDoc(string path) =>
+        Path.GetExtension(path).Equals(".md", StringComparison.OrdinalIgnoreCase) && !path.EndsWith(TemporarySuffix, StringComparison.OrdinalIgnoreCase);
+
+    private const string TemporarySuffix = ".puppeteer.tmp";
+
     private static ProjectDoc? ReadDoc(string path)
     {
         try
@@ -104,6 +114,12 @@ public sealed class ProjectDocVault : IProjectDocVault
     }
 
     private static DateTimeOffset Modified(string path) => new FileInfo(path).LastWriteTimeUtc;
+
+    private static string Current(string path)
+    {
+        try { return File.ReadAllText(path); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return ""; }
+    }
 
     private static IEnumerable<string> EnumerateDocs(string root, CancellationToken cancellationToken)
     {

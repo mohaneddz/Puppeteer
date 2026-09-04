@@ -51,9 +51,10 @@ public interface IProjectDocVault : IDisposable
     void Open(string? vaultPath);
     Task<IReadOnlyList<ProjectDoc>> LoadAsync(CancellationToken cancellationToken = default);
     Task<ProjectDoc?> ReadAsync(string docPath, CancellationToken cancellationToken = default);
-    /// <param name="expectedModifiedAt">The timestamp the caller last read. When the file on disk is
-    /// newer, the write is refused rather than overwriting an edit made elsewhere.</param>
-    Task<DocWriteResult> WriteAsync(ProjectDoc doc, DateTimeOffset? expectedModifiedAt, CancellationToken cancellationToken = default);
+    /// <summary>Writes the doc back. The text it was parsed from is the guard: if the file on disk no
+    /// longer matches, someone else has edited it and the write is refused rather than applied. A doc
+    /// that was never read from disk is a new one, and an existing file at its path is also refused.</summary>
+    Task<DocWriteResult> WriteAsync(ProjectDoc doc, CancellationToken cancellationToken = default);
     /// <summary>Where a doc for this project would live: <c>&lt;vault&gt;/&lt;category&gt;/&lt;name&gt;.md</c>.</summary>
     string PathFor(string category, string projectName);
     IReadOnlyList<string> Categories();

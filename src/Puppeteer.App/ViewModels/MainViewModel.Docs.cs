@@ -143,11 +143,10 @@ public sealed partial class MainViewModel
             MatchDocs();
             RebuildDocEntries();
             Raise(nameof(DocsSummary));
-            if (external)
-            {
-                LoadSelectedDoc(fromDisk: true);
-                Status = "Docs folder changed on disk — reloaded.";
-            }
+            // The inspector is filled in before the vault has finished loading on startup, so the
+            // selected project has to be looked at again once the docs are actually here.
+            LoadSelectedDoc(fromDisk: true);
+            if (external) Status = "Docs folder changed on disk — reloaded.";
         }
         catch (Exception e) { Status = $"Couldn't read the docs folder: {e.Message}"; }
     }
@@ -292,14 +291,14 @@ public sealed partial class MainViewModel
                 ProjectDocSections.Next, _docNext),
             ProjectDocSections.Notes, _docNotes);
         if (_docStatus.Length > 0) edited = ProjectDocFormat.WithField(edited, ProjectDocFields.Status, _docStatus);
-        await WriteDocAsync(edited, doc.ModifiedAt, $"Saved {Path.GetFileName(doc.FilePath)}");
+        await WriteDocAsync(edited, $"Saved {Path.GetFileName(doc.FilePath)}");
     }
 
-    private async Task WriteDocAsync(ProjectDoc doc, DateTimeOffset? expected, string successMessage)
+    private async Task WriteDocAsync(ProjectDoc doc, string successMessage)
     {
         if (_vault is null) return;
         _lastWrite = (doc.FilePath, DateTime.UtcNow);
-        var result = await _vault.WriteAsync(doc, expected);
+        var result = await _vault.WriteAsync(doc);
         switch (result.Outcome)
         {
             case DocWriteOutcome.Written:
@@ -346,7 +345,7 @@ public sealed partial class MainViewModel
         var path = _vault.PathFor(MatchExistingCategoryFolder(category), project.Name);
         if (File.Exists(path)) { Status = $"A doc already exists at {path}."; return; }
         var doc = ProjectDocFormat.Create(path, project.Name, FactualFields(project, null));
-        await WriteDocAsync(doc, null, $"Created {Path.GetFileName(path)}");
+        await WriteDocAsync(doc, $"Created {Path.GetFileName(path)}");
         await LinkAsync(project.Id, path, manual: false);
     }
 
@@ -410,7 +409,7 @@ public sealed partial class MainViewModel
         if (!DescribesItsOwnFolder(project) || _docMatches.GetValueOrDefault(project!.Id)?.Doc is not { } doc) return;
         var updated = ApplyFacts(doc, project);
         if (ProjectDocFormat.Render(updated) == ProjectDocFormat.Render(doc)) { Status = $"{project.Name}'s doc already matches."; return; }
-        await WriteDocAsync(updated, doc.ModifiedAt, $"Updated {Path.GetFileName(doc.FilePath)} from the repo");
+        await WriteDocAsync(updated, $"Updated {Path.GetFileName(doc.FilePath)} from the repo");
         LoadSelectedDoc();
     }
 
@@ -430,7 +429,7 @@ public sealed partial class MainViewModel
             var updated = ApplyFacts(doc, project);
             if (ProjectDocFormat.Render(updated) == ProjectDocFormat.Render(doc)) continue;
             _lastWrite = (doc.FilePath, DateTime.UtcNow);
-            var result = await _vault!.WriteAsync(updated, doc.ModifiedAt);
+            var result = await _vault!.WriteAsync(updated);
             if (result.Outcome == DocWriteOutcome.Written) { ReplaceDoc(result.Doc!); written++; }
         }
         await LoadDocsAsync();
