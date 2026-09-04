@@ -45,6 +45,7 @@
           </StackPanel>
           <Ellipse Grid.Column="2" Width="10" Height="10" VerticalAlignment="Top" Margin="0,5,0,0"
                    Fill="{Binding SelectedProject, Converter={StaticResource StatusBrush}}"
+                   ToolTip="{Binding SelectedProject, Converter={StaticResource StatusTip}}"
                    Visibility="{Binding SelectedProject, Converter={StaticResource StatusVis}}"/>
         </Grid>
 

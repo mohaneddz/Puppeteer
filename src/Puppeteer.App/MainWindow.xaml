@@ -283,7 +283,7 @@
                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                 <TreeView.ItemContainerStyle>
                   <Style TargetType="TreeViewItem">
-                    <Setter Property="IsExpanded" Value="False"/>
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
                     <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
                   </Style>
                 </TreeView.ItemContainerStyle>
@@ -827,9 +827,19 @@
       <!-- ============ STATUS BAR ============ -->
       <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
         <Grid Margin="14,0,10,0">
-          <TextBlock VerticalAlignment="Center" Style="{StaticResource MutedText}" FontSize="11.5">
-            <Run Text="{Binding Projects.Count, Mode=OneWay}"/><Run Text=" projects"/>
-          </TextBlock>
+          <!-- The page header already says how many are shown; the status bar reports the whole
+               library instead, so the two lines aren't the same number twice. -->
+          <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="{Binding LibrarySummary}" Style="{StaticResource MutedText}" FontSize="11.5"/>
+            <Border Width="1" Height="12" Background="{StaticResource BorderBrush}" Margin="12,0"
+                    Visibility="{Binding RunningBadge, Converter={StaticResource EmptyVis}}"/>
+            <StackPanel Orientation="Horizontal" Visibility="{Binding RunningBadge, Converter={StaticResource EmptyVis}}">
+              <Ellipse Width="7" Height="7" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
+              <TextBlock Margin="7,0,0,0" VerticalAlignment="Center" Style="{StaticResource MutedText}" FontSize="11.5">
+                <Run Text="{Binding RunningCount, Mode=OneWay}"/><Run Text=" running"/>
+              </TextBlock>
+            </StackPanel>
+          </StackPanel>
           <Button HorizontalAlignment="Right" Style="{StaticResource IconButton}" Width="26" Height="26" ToolTip="Toggle terminal"
                   Command="{Binding ToggleTerminalCommand}">
             <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="13" Height="13"

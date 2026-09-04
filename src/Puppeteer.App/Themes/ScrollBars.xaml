@@ -1,12 +1,44 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- A wide, transparent hit area with a narrow visible thumb inside it: the bar reads as a hairline
+       but is still a 10px target to grab, and thickens under the cursor. A 5px-wide scrollbar looks
+       tidy in a screenshot and is miserable to actually drag. -->
   <Style x:Key="ScrollThumb" TargetType="Thumb">
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Thumb">
-          <Border x:Name="T" Background="#2C3138" CornerRadius="2.5" Margin="0"/>
+          <Border Background="Transparent">
+            <Border x:Name="T" Background="#2C3138" CornerRadius="3" Width="5" HorizontalAlignment="Center"/>
+          </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="T" Property="Background" Value="#3B424B"/>
+              <Setter TargetName="T" Property="Background" Value="#454D57"/>
+              <Setter TargetName="T" Property="Width" Value="9"/>
+            </Trigger>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="T" Property="Background" Value="{StaticResource AccentBrush}"/>
+              <Setter TargetName="T" Property="Width" Value="9"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="HorizontalScrollThumb" TargetType="Thumb">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Thumb">
+          <Border Background="Transparent">
+            <Border x:Name="T" Background="#2C3138" CornerRadius="3" Height="5" VerticalAlignment="Center"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="T" Property="Background" Value="#454D57"/>
+              <Setter TargetName="T" Property="Height" Value="9"/>
+            </Trigger>
+            <Trigger Property="IsDragging" Value="True">
+              <Setter TargetName="T" Property="Background" Value="{StaticResource AccentBrush}"/>
+              <Setter TargetName="T" Property="Height" Value="9"/>
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -16,7 +48,7 @@
 
   <Style TargetType="ScrollBar">
     <Setter Property="Background" Value="Transparent"/>
-    <Setter Property="Width" Value="5"/>
+    <Setter Property="Width" Value="11"/>
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ScrollBar">
@@ -38,7 +70,7 @@
     </Setter>
     <Style.Triggers>
       <Trigger Property="Orientation" Value="Horizontal">
-        <Setter Property="Height" Value="5"/>
+        <Setter Property="Height" Value="11"/>
         <Setter Property="Width" Value="Auto"/>
         <Setter Property="Template">
           <Setter.Value>
@@ -46,7 +78,7 @@
               <Grid Background="Transparent">
                 <Track x:Name="PART_Track">
                   <Track.Thumb>
-                    <Thumb Style="{StaticResource ScrollThumb}"/>
+                    <Thumb Style="{StaticResource HorizontalScrollThumb}"/>
                   </Track.Thumb>
                   <Track.IncreaseRepeatButton>
                     <RepeatButton Command="ScrollBar.PageRightCommand" Opacity="0" Focusable="False"/>

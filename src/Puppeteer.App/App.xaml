@@ -14,16 +14,14 @@
   <conv:ProjectIconSourceConverter x:Key="ProjectIcon"/>
   <conv:ProjectIconFallbackVisibilityConverter x:Key="IconFallbackVis"/>
   <conv:ViewStrokeConverter x:Key="ViewStroke"/>
-  <conv:ViewModeWidthConverter x:Key="ViewWidth"/>
-  <conv:ViewModeHeightConverter x:Key="ViewHeight"/>
   <conv:TakeConverter x:Key="Take"/>
   <conv:MoreCountConverter x:Key="MoreCount"/>
   <conv:ProjectTypeConverter x:Key="ProjectType"/>
   <conv:PinnedVisibilityConverter x:Key="Pinned"/>
   <conv:ActiveFolderBrushConverter x:Key="ActiveFolder"/>
-  <conv:ToastMarginConverter x:Key="ToastMargin"/>
   <conv:PanelToggleIconConverter x:Key="PanelToggleIcon"/>
   <conv:ProjectBreadcrumbConverter x:Key="Breadcrumb"/>
   <conv:TerminalLineBrushConverter x:Key="TerminalLine"/>
+  <conv:ProjectStatusTooltipConverter x:Key="StatusTip"/>
  </ResourceDictionary></Application.Resources>
 </Application>

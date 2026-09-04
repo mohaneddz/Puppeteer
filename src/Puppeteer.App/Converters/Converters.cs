@@ -111,31 +111,6 @@ public sealed class PanelToggleIconConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
-/// <summary>Lifts the status toast above the terminal panel when it is open.</summary>
-public sealed class ToastMarginConverter : IValueConverter
-{
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
-        new Thickness(0, 0, 0, value is true ? 268 : 26);
-    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
-}
-
-/// <summary>Grid mode → fixed card width; List mode → auto (stretches to the row).</summary>
-public sealed class ViewModeWidthConverter : IValueConverter
-{
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
-        string.Equals(value?.ToString(), "List", StringComparison.OrdinalIgnoreCase) ? double.NaN : 316d;
-    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
-}
-
-/// <summary>Grid mode → fixed card height (so the virtualizing wrap layout can assume a uniform
-/// cell); List mode → auto.</summary>
-public sealed class ViewModeHeightConverter : IValueConverter
-{
-    public object Convert(object? value, Type t, object? parameter, CultureInfo c) =>
-        string.Equals(value?.ToString(), "List", StringComparison.OrdinalIgnoreCase) ? double.NaN : 178d;
-    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
-}
-
 /// <summary>Given a total count and a shown-count parameter N, yields "+K" for the hidden remainder
 /// (empty when nothing is hidden).</summary>
 public sealed class MoreCountConverter : IValueConverter
@@ -300,4 +275,17 @@ public sealed class TerminalLineBrushConverter : IValueConverter
     }
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
+}
+
+/// <summary>Explains the status dot. A coloured dot with no tooltip is a puzzle, not an indicator.</summary>
+public sealed class ProjectStatusTooltipConverter : IValueConverter
+{
+    public object? Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        if (value is not Project p) return null;
+        if (p.IsRunning) return p.RunningSessionCount == 1 ? "1 terminal session running" : $"{p.RunningSessionCount} terminal sessions running";
+        if (p.HasGitChanges) return p.Git!.ModifiedFileCount == 1 ? "1 uncommitted change" : $"{p.Git.ModifiedFileCount} uncommitted changes";
+        return null;
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }

@@ -11,6 +11,9 @@ public sealed class FolderNode(string name, string path, int depth)
     public string Path { get; } = path;
     public int Depth { get; } = depth;
     public int ProjectCount { get; set; }
+    /// <summary>Bound two-way to the TreeViewItem so expanding a folder sticks. Roots start open —
+    /// a tree that shows one collapsed row per root tells the user nothing about their projects.</summary>
+    public bool IsExpanded { get; set; }
     public ObservableCollection<FolderNode> Children { get; } = [];
 
     public static IReadOnlyList<FolderNode> Build(IEnumerable<RootFolder> roots, IReadOnlyList<Project> projects)
@@ -22,7 +25,8 @@ public sealed class FolderNode(string name, string path, int depth)
             if (owned.Length == 0) continue;
             var rootNode = new FolderNode(System.IO.Path.GetFileName(root.Path.TrimEnd(System.IO.Path.DirectorySeparatorChar)) is { Length: > 0 } n ? n : root.Path, root.Path, 0)
             {
-                ProjectCount = owned.Length
+                ProjectCount = owned.Length,
+                IsExpanded = true
             };
             var index = new Dictionary<string, FolderNode>(StringComparer.OrdinalIgnoreCase) { [""] = rootNode };
             foreach (var project in owned)

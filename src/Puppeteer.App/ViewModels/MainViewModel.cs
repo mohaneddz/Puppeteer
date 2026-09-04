@@ -89,6 +89,8 @@ public sealed class MainViewModel:ObservableObject
  private FolderNode? _selectedFolder; public FolderNode? SelectedFolder{get=>_selectedFolder;set{if(Set(ref _selectedFolder,value)){Raise(nameof(FolderFilterActive));Refresh();}}}
  public bool FolderFilterActive=>_selectedFolder is not null;
  public bool HasAnyProjects=>_allProjects.Count>0;
+ public int TotalProjects=>_allProjects.Count;
+ public string LibrarySummary=>$"{_allProjects.Count} project{(_allProjects.Count==1?"":"s")} in {Roots.Count} root{(Roots.Count==1?"":"s")}";
  public RelayCommand ClearFiltersCommand{get;}
  private bool _terminalMaximized; public bool TerminalMaximized{get=>_terminalMaximized;set=>Set(ref _terminalMaximized,value);}
  private bool _terminalSplit; public bool TerminalSplit{get=>_terminalSplit;set=>Set(ref _terminalSplit,value);}
@@ -239,7 +241,7 @@ public sealed class MainViewModel:ObservableObject
    // the search box doesn't blank the inspector on every keystroke.
    _selectedProject=previousId is Guid id?Projects.FirstOrDefault(p=>p.Id==id):null;
    Raise(nameof(SelectedProject));
-   Raise(nameof(HasAnyProjects));
+   Raise(nameof(HasAnyProjects));Raise(nameof(TotalProjects));Raise(nameof(LibrarySummary));
   }
   finally{_refreshing=false;}
  }

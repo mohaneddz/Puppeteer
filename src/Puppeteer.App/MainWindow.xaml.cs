@@ -254,9 +254,23 @@ public partial class MainWindow : Window
     {
         if (e.ChangedButton != MouseButton.Left) return;
         if (e.ClickCount == 2)
+        {
             WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-        else
-            DragMove();
+            return;
+        }
+        // Dragging a maximized window restores it first, the way a native title bar does, and keeps
+        // the grabbed point under the cursor instead of snapping the window's left edge to it.
+        if (WindowState == WindowState.Maximized)
+        {
+            var cursor = e.GetPosition(this);
+            var ratio = ActualWidth > 0 ? cursor.X / ActualWidth : 0.5;
+            WindowState = WindowState.Normal;
+            var screen = PointToScreen(cursor);
+            Left = screen.X - RestoreBounds.Width * ratio;
+            Top = screen.Y - cursor.Y;
+        }
+        // DragMove throws if the button was already released between the event and this call.
+        try { DragMove(); } catch (InvalidOperationException) { }
     }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -282,9 +296,15 @@ public partial class MainWindow : Window
                 await Vm.AddRootPathAsync(path);
     }
 
+    // True while the caret is in a terminal's command line. Ctrl+K, Ctrl+R and Ctrl+L all mean
+    // something to a shell, so the app's own bindings must not swallow them there.
+    private bool TypingInTerminal => Keyboard.FocusedElement is TextBox { DataContext: TerminalSessionViewModel };
+
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        // Ctrl+` is the exception: toggling the panel away is exactly what you want from inside it.
+        if (ctrl && TypingInTerminal && e.Key != Key.OemTilde) return;
         if (ctrl && e.Key == Key.K)
         {
             Vm.CurrentPage = "Projects";

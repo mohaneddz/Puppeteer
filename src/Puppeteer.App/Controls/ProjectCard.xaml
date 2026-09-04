@@ -76,6 +76,7 @@
                 Visibility="{Binding Id, Converter={StaticResource Pinned}}"/>
           <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,1,0,0"
                    Fill="{Binding Converter={StaticResource StatusBrush}}"
+                   ToolTip="{Binding Converter={StaticResource StatusTip}}"
                    Visibility="{Binding Converter={StaticResource StatusVis}}"/>
         </StackPanel>
       </Grid>
