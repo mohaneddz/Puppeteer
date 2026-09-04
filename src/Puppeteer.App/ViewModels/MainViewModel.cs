@@ -73,9 +73,15 @@ public sealed class MainViewModel:ObservableObject
  // ---- Appearance ----
  public IReadOnlyList<string> Densities{get;}=["Comfortable","Compact"];
  private string _density="Comfortable";
- public string Density{get=>_density;set{if(!Set(ref _density,value))return;SavePref("Density",value);Raise(nameof(CardWidth));Raise(nameof(CardHeight));}}
- public double CardWidth=>_density=="Compact"?264:316;
- public double CardHeight=>_density=="Compact"?156:182;
+ public string Density{get=>_density;set{if(!Set(ref _density,value))return;SavePref("Density",value);RaiseCardMetrics();}}
+ private void RaiseCardMetrics(){Raise(nameof(CardWidth));Raise(nameof(CardHeight));Raise(nameof(CardPadding));Raise(nameof(CardGap));}
+ private bool Compact=>_density=="Compact";
+ // The cell and the card's own spacing move together: shrinking only the cell clipped the card's
+ // footer, because the content still wanted the comfortable card's height.
+ public double CardWidth=>Compact?266:316;
+ public double CardHeight=>Compact?158:182;
+ public Thickness CardPadding=>Compact?new(13,11,13,11):new(16,15,16,15);
+ public Thickness CardGap=>Compact?new(0,9,0,0):new(0,14,0,0);
 
  // ---- Tools ----
  private string _ideCommand=""; public string IdeCommand{get=>_ideCommand;set{if(Set(ref _ideCommand,value))SavePref("IdeCommand",value.Trim());}}
@@ -161,7 +167,7 @@ public sealed class MainViewModel:ObservableObject
   _closeToTray=await _repository.GetSettingAsync("CloseToTray")=="1";Raise(nameof(CloseToTray));
   _confirmExitWithSessions=await _repository.GetSettingAsync("ConfirmExitWithSessions")!="0";Raise(nameof(ConfirmExitWithSessions));
   _ideCommand=await _repository.GetSettingAsync("IdeCommand")??"";Raise(nameof(IdeCommand));
-  _density=await _repository.GetSettingAsync("Density")??_density;Raise(nameof(Density));Raise(nameof(CardWidth));Raise(nameof(CardHeight));
+  _density=await _repository.GetSettingAsync("Density")??_density;Raise(nameof(Density));RaiseCardMetrics();
   _scrollback=await _repository.GetSettingAsync("Scrollback")??_scrollback;Raise(nameof(Scrollback));ApplyScrollback();
   // The registry is the source of truth for this one — the user may have removed the entry from Task
   // Manager's Startup tab since we last wrote it, and the checkbox should reflect what is real.

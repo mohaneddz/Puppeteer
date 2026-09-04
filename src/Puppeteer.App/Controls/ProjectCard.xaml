@@ -22,7 +22,7 @@
   </UserControl.Resources>
   <!-- No card-level tooltip: it would shadow the per-element tooltips (path, status, actions) that
        carry the information a hover is actually asking for. -->
-  <Border x:Name="Card" Padding="16,15" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand">
+  <Border x:Name="Card" Padding="{Binding DataContext.CardPadding, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,14,14" BorderThickness="1" CornerRadius="12" Background="{StaticResource CardBrush}" Cursor="Hand">
     <Border.Style>
       <Style TargetType="Border">
         <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
@@ -82,7 +82,7 @@
       </Grid>
 
       <!-- Tech badges (capped so the fixed-height card never clips; full stack is in the inspector) -->
-      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,0">
+      <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="{Binding DataContext.CardGap, RelativeSource={RelativeSource AncestorType=Window}}">
         <ItemsControl ItemsSource="{Binding Technologies, Converter={StaticResource Take}, ConverterParameter=3}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>
@@ -98,7 +98,7 @@
       </StackPanel>
 
       <!-- Footer -->
-      <Border Grid.Row="2" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Margin="0,15,0,0" Padding="0,11,0,0">
+      <Border Grid.Row="2" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Margin="{Binding DataContext.CardGap, RelativeSource={RelativeSource AncestorType=Window}}" Padding="0,10,0,0">
         <Grid>
           <Button Style="{StaticResource CardLink}" HorizontalAlignment="Left"
                   Command="{Binding DataContext.OpenTerminalCommand, RelativeSource={RelativeSource AncestorType=Window}}"

@@ -42,9 +42,13 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     /// how many columns there are.</summary>
     private void ResolveCells(Size viewport, int itemCount)
     {
-        var minimum = Math.Max(1, ItemWidth);
-        _columns = viewport.Width > 0 ? Math.Max(1, (int)(viewport.Width / minimum)) : 1;
-        _cell = new Size(viewport.Width > 0 ? viewport.Width / _columns : minimum, ItemHeight);
+        var preferred = Math.Max(1, ItemWidth);
+        // Let a column run a little under the preferred width rather than dropping it: with a hard
+        // floor, a few pixels of window width cost a whole column and stretch the survivors a third
+        // wider than intended, so the grid's column count lurches as the window resizes.
+        var tolerance = preferred * 0.12;
+        _columns = viewport.Width > 0 ? Math.Max(1, (int)((viewport.Width + tolerance) / preferred)) : 1;
+        _cell = new Size(viewport.Width > 0 ? viewport.Width / _columns : preferred, ItemHeight);
         var rows = (int)Math.Ceiling((double)itemCount / _columns);
         _extent = new Size(viewport.Width, rows * _cell.Height);
     }
