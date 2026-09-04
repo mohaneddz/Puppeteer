@@ -18,15 +18,23 @@ public partial class MainWindow : Window
     private double _detailsWidth = 346;
     private double _terminalHeight = 280;
 
-    public MainWindow(MainViewModel viewModel)
+    private readonly Services.TrayIcon _tray;
+    private bool _exiting;
+
+    public MainWindow(MainViewModel viewModel, Services.TrayIcon tray)
     {
         InitializeComponent();
         DataContext = viewModel;
+        _tray = tray;
         viewModel.PropertyChanged += Vm_PropertyChanged;
         ApplyTerminalLayout();
         Loaded += async (_, _) => await RestoreLayoutAsync();
-        Closing += (_, _) => SaveLayout();
-        StateChanged += (_, _) => UpdateMaximizeVisual();
+        Closing += Window_Closing;
+        StateChanged += (_, _) => { UpdateMaximizeVisual(); ApplyMinimizeToTray(); };
+        _tray.ShowRequested += (_, _) => RestoreFromTray();
+        _tray.NewTerminalRequested += (_, _) => { RestoreFromTray(); if (Vm.NewSessionCommand.CanExecute(null)) Vm.NewSessionCommand.Execute(null); };
+        _tray.ExitRequested += (_, _) => { _exiting = true; Close(); };
+        _tray.SetRunningCount(0);
         if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 } capturePath)
             Loaded += (_, _) => CaptureAndExit(capturePath);
     }
@@ -132,7 +140,65 @@ public partial class MainWindow : Window
             case nameof(MainViewModel.DetailsCollapsed): ApplyDetails(); break;
             case nameof(MainViewModel.TerminalOpen):
             case nameof(MainViewModel.TerminalMaximized): ApplyTerminalLayout(); break;
+            case nameof(MainViewModel.RunningCount): _tray.SetRunningCount(Vm.RunningCount); break;
         }
+    }
+
+    // ---- Notification area ----
+
+    /// <summary>Hides the window from the taskbar when it is minimized, if the user asked for that.
+    /// The processes keep running; the tray icon is what says so.</summary>
+    private void ApplyMinimizeToTray()
+    {
+        if (WindowState != WindowState.Minimized || !Vm.MinimizeToTray) return;
+        Hide();
+        if (!_announcedTray)
+        {
+            _announcedTray = true;
+            _tray.Notify("Puppeteer is still running", "Find it in the notification area, or double-click the icon to bring it back.");
+        }
+    }
+
+    private bool _announcedTray;
+
+    private void RestoreFromTray()
+    {
+        Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
+        Topmost = true;
+        Topmost = false;
+    }
+
+    /// <summary>Start hidden when launched by the Run key with --tray, so logging in doesn't throw a
+    /// window in the user's face.</summary>
+    public void StartHidden()
+    {
+        _announcedTray = true;
+        WindowState = WindowState.Minimized;
+        Hide();
+    }
+
+    private void Window_Closing(object? sender, CancelEventArgs e)
+    {
+        // "Close to tray" is a hide, not an exit — Quit from the tray menu is the way out.
+        if (!_exiting && Vm.CloseToTray)
+        {
+            e.Cancel = true;
+            SaveLayout();
+            Hide();
+            return;
+        }
+        if (!_exiting && Vm.ConfirmExitWithSessions && Vm.RunningCount > 0)
+        {
+            var answer = MessageBox.Show(this,
+                $"{Vm.RunningCount} terminal session(s) are still running. Quitting will stop them.",
+                "Quit Puppeteer?", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+            if (answer != MessageBoxResult.OK) { e.Cancel = true; return; }
+        }
+        SaveLayout();
+        _tray.Dispose();
+        Application.Current.Shutdown();
     }
 
     private void ApplySidebar()

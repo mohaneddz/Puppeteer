@@ -406,7 +406,7 @@
                   <Style TargetType="ListBox" BasedOn="{StaticResource BareList}">
                     <Setter Property="ItemsPanel">
                       <Setter.Value>
-                        <ItemsPanelTemplate><controls:VirtualizingWrapPanel ItemWidth="316" ItemHeight="182"/></ItemsPanelTemplate>
+                        <ItemsPanelTemplate><controls:VirtualizingWrapPanel ItemWidth="{Binding DataContext.CardWidth, RelativeSource={RelativeSource AncestorType=Window}}" ItemHeight="{Binding DataContext.CardHeight, RelativeSource={RelativeSource AncestorType=Window}}"/></ItemsPanelTemplate>
                       </Setter.Value>
                     </Setter>
                     <Style.Triggers>
@@ -521,7 +521,7 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding CurrentPage, Converter={StaticResource PageVis}, ConverterParameter=Settings}">
               <StackPanel Margin="26,20,26,22">
                 <TextBlock Text="Settings" Style="{StaticResource PageTitle}" Margin="0,0,0,4"/>
-                <TextBlock Text="Manage roots, terminal, and detection." Style="{StaticResource MutedText}" Margin="0,0,0,22"/>
+                <TextBlock Text="Roots, startup behaviour, terminals and appearance." Style="{StaticResource MutedText}" Margin="0,0,0,22"/>
 
                 <TextBlock Text="Roots" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
                 <ItemsControl ItemsSource="{Binding Roots}" Margin="0,0,0,8">
@@ -543,9 +543,96 @@
                 <TextBlock Text="No roots yet — use Add Root to scan a folder." Style="{StaticResource MutedText}" Margin="2,0,0,0"
                            Visibility="{Binding Roots.Count, Converter={StaticResource CountVis}, ConverterParameter=Inverse}"/>
 
+                <TextBlock Text="Startup &amp; notification area" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Launch when Windows starts" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Adds Puppeteer to your account's startup programs. No admin rights needed, and you can undo it from Task Manager." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding LaunchAtStartup}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Start hidden in the tray" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="On a startup launch, go straight to the notification area instead of opening the window." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding StartMinimized}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Minimize to the tray" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Minimizing hides the window rather than leaving it on the taskbar. Running terminals keep running." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding MinimizeToTray}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Close to the tray" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="The close button hides Puppeteer instead of quitting it. Quit from the tray icon's menu." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding CloseToTray}"/>
+                  </Grid>
+                </Border>
+
                 <TextBlock Text="Terminal" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
-                <TextBlock Text="Default shell" Style="{StaticResource MutedText}" Margin="0,0,0,6"/>
-                <ComboBox ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}" Width="340" HorizontalAlignment="Left"/>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0" VerticalAlignment="Center">
+                      <TextBlock Text="Default shell" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Used for new sessions and command presets." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <ComboBox HorizontalAlignment="Right" VerticalAlignment="Center" Width="180"
+                              ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0" VerticalAlignment="Center">
+                      <TextBlock Text="Scrollback" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Lines of output kept per session. Higher costs memory when a watch task is chatty." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <ComboBox HorizontalAlignment="Right" VerticalAlignment="Center" Width="120"
+                              ItemsSource="{Binding ScrollbackOptions}" SelectedItem="{Binding Scrollback}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Ask before quitting with sessions running" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Quitting stops every terminal Puppeteer started." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding ConfirmExitWithSessions}"/>
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="Appearance" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0" VerticalAlignment="Center">
+                      <TextBlock Text="Density" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Compact fits more project cards on screen at once." Style="{StaticResource SettingHint}"/>
+                    </StackPanel>
+                    <ComboBox HorizontalAlignment="Right" VerticalAlignment="Center" Width="160"
+                              ItemsSource="{Binding Densities}" SelectedItem="{Binding Density}"/>
+                  </Grid>
+                </Border>
+
+                <TextBlock Text="Tools" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <Border Style="{StaticResource SettingRow}">
+                  <StackPanel>
+                    <TextBlock Text="Open in IDE command" Style="{StaticResource SettingLabel}"/>
+                    <TextBlock Text="The editor to launch with the project folder — code, rider, subl. Leave blank to let Windows open the solution or folder as it normally would."
+                               Style="{StaticResource SettingHint}"/>
+                    <TextBox Text="{Binding IdeCommand, UpdateSourceTrigger=LostFocus}" Margin="0,10,0,0" FontFamily="{StaticResource MonoFont}"/>
+                  </StackPanel>
+                </Border>
 
                 <TextBlock Text="AI categorization (Groq)" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
                 <TextBlock Text="Used to label projects as Personal / Client / Hackathon / Course from their README and path. Leave blank to use the .env key in development."
@@ -582,7 +669,12 @@
                   <TextBlock Grid.Row="5" Grid.Column="0" Text="Esc" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource AccentBrush}"/>
                   <TextBlock Grid.Row="5" Grid.Column="1" Text="Clear search / close terminal" Style="{StaticResource MutedText}"/>
                 </Grid>
-                <Button Content="Reset window layout" Command="{Binding ResetLayoutCommand}" HorizontalAlignment="Left" Margin="0,16,0,0" Padding="14,9"/>
+                <TextBlock Text="Data" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <StackPanel Orientation="Horizontal">
+                  <Button Content="Reset window layout" Command="{Binding ResetLayoutCommand}" Padding="14,9"/>
+                  <Button Content="Open data folder" Command="{Binding OpenDataFolderCommand}" Margin="9,0,0,0" Padding="14,9"
+                          ToolTip="Where roots, projects, icons and preferences are stored"/>
+                </StackPanel>
 
                 <TextBlock Text="About" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
                 <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap">

@@ -57,8 +57,18 @@ public sealed class ProcessTerminalSession(TerminalOptions options) : ITerminalS
 public sealed class ProjectLauncher : IProjectLauncher
 {
     public void OpenFolder(string path) => Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
-    public void OpenInIde(string path)
+    public void OpenInIde(string path, string? command = null)
     {
+        if (!string.IsNullOrWhiteSpace(command))
+        {
+            // A configured editor is invoked with the project directory as its argument — "code .",
+            // "rider", "subl" and friends all take that shape — and without the shell, so the command
+            // is resolved against PATH rather than the file-association table.
+            var info = new ProcessStartInfo(command) { WorkingDirectory = path, UseShellExecute = false, CreateNoWindow = true };
+            info.ArgumentList.Add(path);
+            Process.Start(info);
+            return;
+        }
         var solution = Directory.EnumerateFiles(path, "*.sln*").FirstOrDefault();
         Process.Start(new ProcessStartInfo(solution ?? path) { UseShellExecute = true });
     }

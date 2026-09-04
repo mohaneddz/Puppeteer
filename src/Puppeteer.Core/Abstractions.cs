@@ -50,10 +50,20 @@ public interface IGitMetadataService
     Task<GitStatus?> GetStatusAsync(string projectPath, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Registers (or unregisters) the app to start with the user's session.</summary>
+public interface IStartupService
+{
+    bool IsEnabled { get; }
+    /// <param name="minimized">Start hidden in the notification area rather than showing the window.</param>
+    void SetEnabled(bool enabled, bool minimized);
+}
+
 public interface IProjectLauncher
 {
     void OpenFolder(string path);
-    void OpenInIde(string path);
+    /// <param name="command">Executable or command to launch the project with. When blank, the shell
+    /// picks: the project's solution file if there is one, otherwise the folder itself.</param>
+    void OpenInIde(string path, string? command = null);
 }
 
 public interface ITerminalSession

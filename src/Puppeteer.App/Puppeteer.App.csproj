@@ -16,7 +16,18 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- Only for the notification-area icon; WPF has no tray primitive of its own. -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationDefaultFont>Segoe UI</ApplicationDefaultFont>
   </PropertyGroup>
+
+  <!-- UseWindowsForms adds System.Drawing and System.Windows.Forms as global usings, which then
+       collide with WPF's Size, Point, Brush, KeyEventArgs and friends across the whole app. Drop the
+       global usings; the one file that needs WinForms imports it explicitly. -->
+  <ItemGroup>
+    <Using Remove="System.Drawing" />
+    <Using Remove="System.Windows.Forms" />
+  </ItemGroup>
 
   <ItemGroup><Resource Include="Assets\icon.png" /><Resource Include="Assets\logo.png" /></ItemGroup>
 

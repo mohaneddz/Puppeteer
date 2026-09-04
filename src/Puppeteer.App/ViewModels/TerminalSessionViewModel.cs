@@ -8,8 +8,9 @@ namespace Puppeteer.App.ViewModels;
 public sealed class TerminalSessionViewModel : ObservableObject
 {
     // Keep the backlog bounded so a chatty process (a dev server, a watch task) can't grow the
-    // output buffer without limit and exhaust memory.
-    private const int MaxOutputLines = 2000;
+    // output buffer without limit and exhaust memory. Settable, because how much scrollback is worth
+    // holding depends on what the user runs; shared by every session so one setting governs all.
+    public static int MaxOutputLines { get; set; } = 2000;
 
     public ITerminalSession? Session { get; }
     public ObservableCollection<string> Output { get; } = [];
@@ -74,6 +75,13 @@ public sealed class TerminalSessionViewModel : ObservableObject
     private void Append(string line)
     {
         Output.Add(line);
+        TrimOutput();
+    }
+
+    /// <summary>Drops the oldest lines beyond the current cap. Also called when the cap is lowered,
+    /// so an existing session shrinks to the new limit instead of waiting for more output.</summary>
+    public void TrimOutput()
+    {
         while (Output.Count > MaxOutputLines) Output.RemoveAt(0);
     }
 

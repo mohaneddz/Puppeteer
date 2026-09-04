@@ -7,7 +7,7 @@ using Puppeteer.Core;
 namespace Puppeteer.App.ViewModels;
 public sealed class MainViewModel:ObservableObject
 {
- private readonly IProjectRepository _repository; private readonly IProjectScanner _scanner; private readonly ProjectSearchService _searchService; private readonly ITerminalService _terminalService; private readonly IProjectLauncher _launcher; private readonly IIconDiscoveryService _icons; private readonly IFilePicker _picker; private readonly IProjectClassifier _classifier; private readonly AppConfig _config; private readonly IGitMetadataService _git;
+ private readonly IProjectRepository _repository; private readonly IProjectScanner _scanner; private readonly ProjectSearchService _searchService; private readonly ITerminalService _terminalService; private readonly IProjectLauncher _launcher; private readonly IIconDiscoveryService _icons; private readonly IFilePicker _picker; private readonly IProjectClassifier _classifier; private readonly AppConfig _config; private readonly IGitMetadataService _git; private readonly IStartupService _startup;
  private readonly List<Project> _allProjects=[]; private string _search=""; private string _selectedType="All"; private string _selectedTechnology="All"; private string _selectedCategory="All"; private string _currentPage="Projects"; private Project? _selectedProject; private TerminalSessionViewModel? _selectedSession; private bool _terminalOpen; private bool _isBusy; private string _status="Ready"; private string _defaultShell="powershell.exe";
  public ObservableCollection<Project> Projects{get;}=[]; public ObservableCollection<string> Types{get;}=[]; public ObservableCollection<string> TechnologyOptions{get;}=[]; public ObservableCollection<string> CategoryOptions{get;}=[]; public ObservableCollection<RootFolder> Roots{get;}=[]; public ObservableCollection<TerminalSessionViewModel> Sessions{get;}=[]; public ObservableCollection<IconCandidate> IconCandidates{get;}=[];
  public string Search{get=>_search;set{if(Set(ref _search,value))QueueSearchRefresh();}} public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value))SavePref("LastPage",value);}} public Project? SelectedProject{get=>_selectedProject;set{if(_refreshing)return;if(!Set(ref _selectedProject,value))return;IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));_=LoadGitForAsync(value);}}
@@ -53,6 +53,34 @@ public sealed class MainViewModel:ObservableObject
  public RelayCommand NavigateCommand{get;} public AsyncRelayCommand AddRootCommand{get;} public AsyncRelayCommand RemoveRootCommand{get;} public AsyncRelayCommand OpenTerminalCommand{get;} public RelayCommand OpenFolderCommand{get;} public RelayCommand OpenIdeCommand{get;} public RelayCommand CollapseTerminalCommand{get;} public AsyncRelayCommand FindIconCommand{get;} public AsyncRelayCommand ChangeIconCommand{get;} public AsyncRelayCommand ResetIconCommand{get;} public AsyncRelayCommand ChooseCandidateCommand{get;}
  public RelayCommand CopyPathCommand{get;} public RelayCommand SetViewCommand{get;} public RelayCommand NewSessionCommand{get;} public RelayCommand CloseSessionCommand{get;} public RelayCommand ClearOutputCommand{get;} public RelayCommand RunPresetCommand{get;} public RelayCommand RestartSessionCommand{get;} public RelayCommand StopAllCommand{get;} public RelayCommand CopyOutputCommand{get;} public RelayCommand TogglePinCommand{get;}
  private bool _autoClassify=true; public bool AutoClassify{get=>_autoClassify;set{if(Set(ref _autoClassify,value))SavePref("AutoClassify",value?"1":"0");}}
+
+ // ---- Startup and notification area ----
+ private bool _launchAtStartup; public bool LaunchAtStartup{get=>_launchAtStartup;set{if(!Set(ref _launchAtStartup,value))return;SavePref("LaunchAtStartup",value?"1":"0");ApplyStartupRegistration();}}
+ private bool _startMinimized; public bool StartMinimized{get=>_startMinimized;set{if(!Set(ref _startMinimized,value))return;SavePref("StartMinimized",value?"1":"0");ApplyStartupRegistration();}}
+ private bool _minimizeToTray=true; public bool MinimizeToTray{get=>_minimizeToTray;set{if(Set(ref _minimizeToTray,value))SavePref("MinimizeToTray",value?"1":"0");}}
+ private bool _closeToTray; public bool CloseToTray{get=>_closeToTray;set{if(Set(ref _closeToTray,value))SavePref("CloseToTray",value?"1":"0");}}
+ // Keeping the registry entry in step with both toggles: enabling "start minimized" has to rewrite
+ // the recorded command line, not just the flag we read back at launch.
+ private void ApplyStartupRegistration()=>_startup.SetEnabled(_launchAtStartup,_startMinimized);
+
+ // ---- Terminal ----
+ private bool _confirmExitWithSessions=true; public bool ConfirmExitWithSessions{get=>_confirmExitWithSessions;set{if(Set(ref _confirmExitWithSessions,value))SavePref("ConfirmExitWithSessions",value?"1":"0");}}
+ public IReadOnlyList<string> ScrollbackOptions{get;}=["500","2000","5000","20000"];
+ private string _scrollback="2000";
+ public string Scrollback{get=>_scrollback;set{if(!Set(ref _scrollback,value))return;SavePref("Scrollback",value);ApplyScrollback();}}
+ private void ApplyScrollback(){if(!int.TryParse(_scrollback,out var lines))return;TerminalSessionViewModel.MaxOutputLines=lines;foreach(var session in Sessions)session.TrimOutput();}
+
+ // ---- Appearance ----
+ public IReadOnlyList<string> Densities{get;}=["Comfortable","Compact"];
+ private string _density="Comfortable";
+ public string Density{get=>_density;set{if(!Set(ref _density,value))return;SavePref("Density",value);Raise(nameof(CardWidth));Raise(nameof(CardHeight));}}
+ public double CardWidth=>_density=="Compact"?264:316;
+ public double CardHeight=>_density=="Compact"?156:182;
+
+ // ---- Tools ----
+ private string _ideCommand=""; public string IdeCommand{get=>_ideCommand;set{if(Set(ref _ideCommand,value))SavePref("IdeCommand",value.Trim());}}
+ public RelayCommand OpenDataFolderCommand{get;}
+ public static string DataFolder=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Puppeteer");
  public RelayCommand ResetLayoutCommand{get;}
  private string _groqApiKey=""; public string GroqApiKey{get=>_groqApiKey;set{if(Set(ref _groqApiKey,value)){_=SaveGroqKeyAsync();Raise(nameof(UsingEnvGroqKey));}}}
  public bool UsingEnvGroqKey=>string.IsNullOrWhiteSpace(_groqApiKey)&&!string.IsNullOrWhiteSpace(_config.GroqApiKeyFromEnv);
@@ -66,14 +94,14 @@ public sealed class MainViewModel:ObservableObject
  private bool _terminalSplit; public bool TerminalSplit{get=>_terminalSplit;set=>Set(ref _terminalSplit,value);}
  private bool _sidebarCollapsed; public bool SidebarCollapsed{get=>_sidebarCollapsed;set=>Set(ref _sidebarCollapsed,value);}
  private bool _detailsCollapsed; public bool DetailsCollapsed{get=>_detailsCollapsed;set=>Set(ref _detailsCollapsed,value);}
- public MainViewModel(IProjectRepository repository,IProjectScanner scanner,ProjectSearchService searchService,ITerminalService terminalService,IProjectLauncher launcher,IIconDiscoveryService icons,IFilePicker picker,IProjectClassifier classifier,AppConfig config,IGitMetadataService git)
+ public MainViewModel(IProjectRepository repository,IProjectScanner scanner,ProjectSearchService searchService,ITerminalService terminalService,IProjectLauncher launcher,IIconDiscoveryService icons,IFilePicker picker,IProjectClassifier classifier,AppConfig config,IGitMetadataService git,IStartupService startup)
  {
-  _repository=repository;_scanner=scanner;_searchService=searchService;_terminalService=terminalService;_launcher=launcher;_icons=icons;_picker=picker;_classifier=classifier;_config=config;_git=git;
+  _repository=repository;_scanner=scanner;_searchService=searchService;_terminalService=terminalService;_launcher=launcher;_icons=icons;_picker=picker;_classifier=classifier;_config=config;_git=git;_startup=startup;
   Sessions.CollectionChanged+=(_,__)=>{Raise(nameof(RunningCount));Raise(nameof(RunningBadge));Refresh();};
   StartDurationTicker();
   NavigateCommand=new(p=>CurrentPage=p?.ToString()??"Projects");AddRootCommand=new(_=>AddRootAsync());RemoveRootCommand=new(p=>RemoveRootAsync(p as RootFolder),p=>p is RootFolder);OpenTerminalCommand=new(p=>OpenTerminalAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenFolderCommand=new(p=>OpenFolder(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenIdeCommand=new(p=>OpenIde(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CollapseTerminalCommand=new(_=>TerminalOpen=false);FindIconCommand=new(_=>FindIconsAsync(),_=>SelectedProject is not null);ChangeIconCommand=new(_=>ChangeIconAsync(),_=>SelectedProject is not null);ResetIconCommand=new(_=>SetIconAsync(null),_=>SelectedProject is not null);ChooseCandidateCommand=new(p=>SetIconAsync((p as IconCandidate)?.Path),p=>p is IconCandidate);
   CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.Output.Clear();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);RestartSessionCommand=new(p=>RestartSession(p as TerminalSessionViewModel??SelectedSession),p=>(p as TerminalSessionViewModel??SelectedSession) is not null);StopAllCommand=new(_=>{foreach(var s in Sessions.ToArray())s.StopCommand.Execute(null);Status="Stopped all sessions";},_=>Sessions.Any(s=>s.Running));CopyOutputCommand=new(_=>CopyOutput(),_=>SelectedSession is not null);TogglePinCommand=new(p=>TogglePin(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);ResetLayoutCommand=new(_=>{_=_repository.SetSettingsAsync(new Dictionary<string,string?>{["WindowWidth"]=null,["WindowHeight"]=null,["SidebarWidth"]=null,["DetailsWidth"]=null,["TerminalHeight"]=null,["Maximized"]=null});Status="Window layout will reset next launch";});
-  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);ToggleTerminalCommand=new(_=>TerminalOpen=!TerminalOpen);RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
+  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);ToggleTerminalCommand=new(_=>TerminalOpen=!TerminalOpen);OpenDataFolderCommand=new(_=>{_launcher.OpenFolder(DataFolder);Status="Opened Puppeteer's data folder";});RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
   ClearFiltersCommand=new(_=>{_selectedFolder=null;Raise(nameof(SelectedFolder));Raise(nameof(FolderFilterActive));_selectedType="All";_selectedTechnology="All";_selectedCategory="All";_search="";Raise(nameof(Search));Refresh();});
  }
  // Each keystroke re-filters, re-derives the three option lists and rebuilds the whole grid. That is
@@ -124,6 +152,16 @@ public sealed class MainViewModel:ObservableObject
   _sortMode=await _repository.GetSettingAsync("SortMode")??_sortMode;Raise(nameof(SortMode));
   _currentPage=await _repository.GetSettingAsync("LastPage")??_currentPage;Raise(nameof(CurrentPage));
   _autoClassify=await _repository.GetSettingAsync("AutoClassify")!="0";Raise(nameof(AutoClassify));
+  _startMinimized=await _repository.GetSettingAsync("StartMinimized")=="1";Raise(nameof(StartMinimized));
+  _minimizeToTray=await _repository.GetSettingAsync("MinimizeToTray")!="0";Raise(nameof(MinimizeToTray));
+  _closeToTray=await _repository.GetSettingAsync("CloseToTray")=="1";Raise(nameof(CloseToTray));
+  _confirmExitWithSessions=await _repository.GetSettingAsync("ConfirmExitWithSessions")!="0";Raise(nameof(ConfirmExitWithSessions));
+  _ideCommand=await _repository.GetSettingAsync("IdeCommand")??"";Raise(nameof(IdeCommand));
+  _density=await _repository.GetSettingAsync("Density")??_density;Raise(nameof(Density));Raise(nameof(CardWidth));Raise(nameof(CardHeight));
+  _scrollback=await _repository.GetSettingAsync("Scrollback")??_scrollback;Raise(nameof(Scrollback));ApplyScrollback();
+  // The registry is the source of truth for this one — the user may have removed the entry from Task
+  // Manager's Startup tab since we last wrote it, and the checkbox should reflect what is real.
+  _launchAtStartup=_startup.IsEnabled;Raise(nameof(LaunchAtStartup));
   Converters.PinStore.Ids.Clear();foreach(var id in (await _repository.GetSettingAsync("Pinned")??"").Split(',',StringSplitOptions.RemoveEmptyEntries))if(Guid.TryParse(id,out var g))Converters.PinStore.Ids.Add(g);
   Roots.Clear();foreach(var root in await _repository.GetRootsAsync())Roots.Add(root);_allProjects.Clear();_allProjects.AddRange(await _repository.GetProjectsAsync());await BackfillCategoriesAsync();RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();_=ClassifyUncategorizedAsync();_=RefreshGitAsync();}
  // Projects indexed before categories existed carry a null category; fill in what the offline path
@@ -158,7 +196,7 @@ public sealed class MainViewModel:ObservableObject
   catch(Exception e){Status=e.Message;}finally{IsBusy=false;}}
  private async Task RemoveRootAsync(RootFolder? root){if(root is null)return;await _repository.RemoveRootAsync(root.Id);Roots.Remove(root);_allProjects.RemoveAll(p=>p.RootId==root.Id);RebuildTree();Refresh();SelectedProject=Projects.FirstOrDefault();Status="Root removed from Puppeteer; project files were not changed.";}
  private void OpenFolder(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenFolder(project.Path);MarkOpened(project);Status=$"Opened {project.Name} in Explorer";}else Status=$"{project.Name} no longer exists on disk.";}
- private void OpenIde(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenInIde(project.Path);MarkOpened(project);Status=$"Opening {project.Name} in your IDE";}else Status=$"{project.Name} no longer exists on disk.";}
+ private void OpenIde(Project? project){if(project is null)return;if(Directory.Exists(project.Path)){_launcher.OpenInIde(project.Path,_ideCommand);MarkOpened(project);Status=$"Opening {project.Name} in your IDE";}else Status=$"{project.Name} no longer exists on disk.";}
  private void MarkOpened(Project project){var i=_allProjects.FindIndex(p=>p.Id==project.Id);if(i>=0)_allProjects[i]=_allProjects[i] with{LastOpenedAt=DateTimeOffset.UtcNow};_=_repository.SetProjectOpenedAsync(project.Id,DateTimeOffset.UtcNow);}
  private void CopyPath(Project? project){if(project is null)return;try{Clipboard.SetText(project.Path);Status=$"Copied path: {project.Path}";}catch{Status="Couldn't access the clipboard";}}
  private void CopyOutput(){if(SelectedSession is null)return;try{Clipboard.SetText(string.Join(Environment.NewLine,SelectedSession.Output));Status="Copied terminal output";}catch{Status="Couldn't access the clipboard";}}
