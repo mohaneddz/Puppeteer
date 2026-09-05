@@ -4,7 +4,7 @@ namespace Puppeteer.App.ViewModels;
 
 /// <summary>One row of the Docs page: a project, the doc that describes it (if any), and how far the
 /// two have drifted apart.</summary>
-public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, ProjectIndexEntry? indexRow, DocDriftReport drift, ProjectStateSnapshot? snapshot)
+public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, ProjectIndexEntry? indexRow, string? readmePath, DocDriftReport drift, ProjectStateSnapshot? snapshot)
 {
     public Project Project { get; } = project;
     public ProjectDoc? Doc { get; } = doc;
@@ -20,6 +20,10 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
     /// <summary>A doc whose name is close enough to be worth offering, but not to attach on its own.</summary>
     public bool HasSuggestion => Doc is null && suggestion is not null;
     public string SuggestionName => suggestion is null ? "" : System.IO.Path.GetFileName(suggestion.FilePath);
+
+    /// <summary>The project's own README, which sits alongside its state doc in the reader.</summary>
+    public bool HasReadme => readmePath is not null;
+    public string ReadmePath => readmePath ?? "";
 
     /// <summary>The doc's own Status field first, then whatever the index row was marked with — the
     /// archived and paused labels live there today, not in the docs.</summary>

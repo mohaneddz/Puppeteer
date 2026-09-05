@@ -28,6 +28,11 @@ public interface IProjectRepository
     /// <summary>Writes several settings in one transaction. Used for snapshots that must land
     /// together and promptly — the window layout saved during shutdown, above all.</summary>
     Task SetSettingsAsync(IReadOnlyDictionary<string, string?> values, CancellationToken cancellationToken = default);
+    Task SetProjectNameAsync(Guid projectId, string? customName, CancellationToken cancellationToken = default);
+    /// <summary>Removes a project and everything remembered about it. Unlike
+    /// <see cref="DeleteProjectsAsync"/>, which only drops the scanned row when a folder is no longer
+    /// on disk, this is for a project deliberately thrown away and must not be undone by a rescan.</summary>
+    Task ForgetProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectDocLink>> GetDocLinksAsync(CancellationToken cancellationToken = default);
     Task SetDocLinkAsync(ProjectDocLink link, CancellationToken cancellationToken = default);
     Task RemoveDocLinkAsync(Guid projectId, CancellationToken cancellationToken = default);

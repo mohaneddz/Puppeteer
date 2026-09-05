@@ -30,6 +30,8 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
             CREATE TABLE IF NOT EXISTS ProjectIcon(ProjectId TEXT PRIMARY KEY, Path TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS TerminalPreset(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, Command TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS AppSetting(Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS ProjectPreference(ProjectId TEXT PRIMARY KEY, Path TEXT NOT NULL,
+                CustomName TEXT NULL, IconPath TEXT NULL, IconFill INTEGER NULL, Category TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectDocLink(ProjectId TEXT PRIMARY KEY, DocPath TEXT NOT NULL, Manual INTEGER NOT NULL DEFAULT 0, LinkedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectSnapshot(Id INTEGER PRIMARY KEY AUTOINCREMENT, ProjectId TEXT NOT NULL, CapturedAt TEXT NOT NULL,
                 Branch TEXT NULL, Head TEXT NULL, ModifiedFileCount INTEGER NOT NULL, Ahead INTEGER NOT NULL, Behind INTEGER NOT NULL,
@@ -91,14 +93,23 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         using var lease = await LeaseAsync(cancellationToken);
         var connection = lease.Connection;
         var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category,IconFill FROM Project ORDER BY Name";
+        // What the user chose wins over the scanned row: a folder that disappeared and came back
+        // has a freshly scanned row with none of those choices on it.
+        command.CommandText = """
+            SELECT p.Id, COALESCE(f.CustomName, p.Name), p.Path, p.RootId, p.PrimaryTechnology, p.TechnologiesJson, p.HierarchyJson, p.PresetsJson,
+                   p.LastOpenedAt, p.CreatedAt, p.UpdatedAt, COALESCE(f.IconPath, p.CustomIconPath), COALESCE(f.Category, p.Category),
+                   COALESCE(f.IconFill, p.IconFill), f.CustomName
+            FROM Project p LEFT JOIN ProjectPreference f ON f.ProjectId = p.Id
+            ORDER BY COALESCE(f.CustomName, p.Name)
+            """;
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
             result.Add(new(Guid.Parse(reader.GetString(0)), reader.GetString(1), reader.GetString(2), Guid.Parse(reader.GetString(3)), reader.GetString(4),
                 JsonSerializer.Deserialize<string[]>(reader.GetString(5)) ?? [], JsonSerializer.Deserialize<string[]>(reader.GetString(6)) ?? [],
                 JsonSerializer.Deserialize<CommandPreset[]>(reader.GetString(7)) ?? [], reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
                 DateTimeOffset.Parse(reader.GetString(9)), DateTimeOffset.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetString(11),
-                Category: reader.IsDBNull(12) ? null : reader.GetString(12), IconFill: reader.GetInt64(13) != 0));
+                Category: reader.IsDBNull(12) ? null : reader.GetString(12), IconFill: reader.GetInt64(13) != 0,
+                CustomName: reader.IsDBNull(14) ? null : reader.GetString(14)));
         return result;
     }
 
@@ -153,7 +164,10 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         var connection = lease.Connection;
         await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
         foreach (var id in ids)
-            await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id; DELETE FROM ProjectIcon WHERE ProjectId=$id; DELETE FROM ProjectDocLink WHERE ProjectId=$id; DELETE FROM ProjectSnapshot WHERE ProjectId=$id; DELETE FROM Project WHERE Id=$id", id, cancellationToken);
+            // Only the scanned row goes. The icon, name, category, doc link and history are the
+            // user's and outlive the folder being away — a project id is derived from its path, so
+            // the same folder turning up again is the same project and gets all of it back.
+            await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id; DELETE FROM Project WHERE Id=$id", id, cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -168,6 +182,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         metadata.CommandText = iconPath is null ? "DELETE FROM ProjectIcon WHERE ProjectId=$id" : "INSERT OR REPLACE INTO ProjectIcon(ProjectId,Path,UpdatedAt) VALUES($id,$path,$updated)";
         metadata.Parameters.AddWithValue("$id", projectId.ToString()); metadata.Parameters.AddWithValue("$path", (object?)iconPath ?? DBNull.Value); metadata.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
         await metadata.ExecuteNonQueryAsync(cancellationToken);
+        await RememberAsync(connection, projectId, "IconPath", iconPath, cancellationToken);
     }
 
     public async Task SetProjectIconFillAsync(Guid projectId, bool fill, CancellationToken cancellationToken = default)
@@ -177,6 +192,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET IconFill=$fill,UpdatedAt=$updated WHERE Id=$id";
         command.Parameters.AddWithValue("$fill", fill ? 1 : 0); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await RememberAsync(connection, projectId, "IconFill", fill ? 1 : 0, cancellationToken);
     }
 
     public async Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default)
@@ -185,6 +201,47 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         var connection = lease.Connection;
         var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET Category=$category,UpdatedAt=$updated WHERE Id=$id";
         command.Parameters.AddWithValue("$category", (object?)category ?? DBNull.Value); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await RememberAsync(connection, projectId, "Category", category, cancellationToken);
+    }
+
+    public async Task SetProjectNameAsync(Guid projectId, string? customName, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        // The scanned row keeps the folder's own name; the rename lives with the other choices, so a
+        // rescan cannot undo it.
+        await RememberAsync(lease.Connection, projectId, "CustomName", string.IsNullOrWhiteSpace(customName) ? null : customName.Trim(), cancellationToken);
+    }
+
+    public async Task ForgetProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken cancellationToken = default)
+    {
+        var ids = projectIds.Distinct().ToArray();
+        if (ids.Length == 0) return;
+        using (var lease = await LeaseAsync(cancellationToken))
+        {
+            var connection = lease.Connection;
+            await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+            foreach (var id in ids)
+                await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM ProjectPreference WHERE ProjectId=$id; DELETE FROM ProjectIcon WHERE ProjectId=$id; DELETE FROM ProjectDocLink WHERE ProjectId=$id; DELETE FROM ProjectSnapshot WHERE ProjectId=$id", id, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+        }
+        await DeleteProjectsAsync(ids, cancellationToken);
+    }
+
+    /// <summary>Records one remembered choice, creating the row from the project's current path the
+    /// first time anything is remembered about it.</summary>
+    private static async Task RememberAsync(SqliteConnection connection, Guid projectId, string column, object? value, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = $"""
+            INSERT INTO ProjectPreference(ProjectId, Path, {column}, UpdatedAt)
+            VALUES($id, COALESCE((SELECT Path FROM Project WHERE Id=$id), ''), $value, $updated)
+            ON CONFLICT(ProjectId) DO UPDATE SET {column}=$value, UpdatedAt=$updated,
+                Path=COALESCE((SELECT Path FROM Project WHERE Id=$id), ProjectPreference.Path)
+            """;
+        command.Parameters.AddWithValue("$id", projectId.ToString());
+        command.Parameters.AddWithValue("$value", value ?? (object)DBNull.Value);
+        command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 

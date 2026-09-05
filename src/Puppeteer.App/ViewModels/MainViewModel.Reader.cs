@@ -12,8 +12,6 @@ public sealed partial class MainViewModel
     public const string ReaderReadme = "README";
     public const string ReaderIndex = "Index";
 
-    private static readonly string[] ReadmeNames = ["README.md", "readme.md", "Readme.md", "README.markdown", "readme.markdown"];
-
     public ObservableCollection<string> ReaderTabs { get; } = [];
 
     private bool _readerOpen;
@@ -104,16 +102,7 @@ public sealed partial class MainViewModel
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return $"*Couldn't read the file: {e.Message}*"; }
     }
 
-    private static string? ReadmeOf(Project project)
-    {
-        if (!Directory.Exists(project.Path)) return null;
-        foreach (var name in ReadmeNames)
-        {
-            var candidate = Path.Combine(project.Path, name);
-            if (File.Exists(candidate)) return candidate;
-        }
-        return null;
-    }
+    private string? ReadmeOf(Project project) => _readmes.GetValueOrDefault(project.Id) ?? ProjectReadme.Find(project.Path);
 
     private void OpenReaderFile()
     {

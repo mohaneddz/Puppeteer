@@ -23,6 +23,9 @@ public sealed partial class MainViewModel
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
     private ProjectIndexLookup? _index;
     private readonly Dictionary<Guid, ProjectIndexEntry> _indexRows = [];
+    // Looked up once per load rather than per row: the docs list is rebuilt on every keystroke of
+    // the filter box, and that is no place for a hundred file-existence checks.
+    private Dictionary<Guid, string> _readmes = [];
     // Our own save fires the vault watcher a moment later. Remember what we just wrote so the app
     // does not announce its own edit as an external one.
     private (string Path, DateTime At) _lastWrite;
@@ -79,7 +82,7 @@ public sealed partial class MainViewModel
     public bool HasVault => _vault?.VaultPath is not null;
     public string DocsSummary => !HasVault
         ? "No docs folder connected."
-        : $"{_docs.Count} doc{(_docs.Count == 1 ? "" : "s")} · {_docMatches.Count} linked · {_docDrift.Values.Count(d => d.NeedsWriteup)} need a writeup";
+        : $"{_docs.Count} doc{(_docs.Count == 1 ? "" : "s")} · {_docMatches.Count} linked · {_readmes.Count} with a README · {_docDrift.Values.Count(d => d.NeedsWriteup)} need a writeup";
 
     public RelayCommand ChooseDocsFolderCommand { get; private set; } = null!;
     public RelayCommand ClearDocsFolderCommand { get; private set; } = null!;
@@ -93,6 +96,7 @@ public sealed partial class MainViewModel
     public AsyncRelayCommand RevertDocCommand { get; private set; } = null!;
     public AsyncRelayCommand SyncDocFactsCommand { get; private set; } = null!;
     public AsyncRelayCommand SyncAllDocFactsCommand { get; private set; } = null!;
+    public AsyncRelayCommand LinkAllDocsCommand { get; private set; } = null!;
     public RelayCommand SelectDocEntryCommand { get; private set; } = null!;
     public RelayCommand ChooseIndexFileCommand { get; private set; } = null!;
     public RelayCommand ClearIndexFileCommand { get; private set; } = null!;
@@ -112,8 +116,10 @@ public sealed partial class MainViewModel
         RevertDocCommand = new(_ => ReloadSelectedDocAsync(), _ => SelectedDoc is not null);
         SyncDocFactsCommand = new(_ => SyncFactsAsync(SelectedProject), _ => DescribesItsOwnFolder(SelectedProject));
         SyncAllDocFactsCommand = new(_ => SyncAllFactsAsync(), _ => HasVault && _docMatches.Count > 0);
+        LinkAllDocsCommand = new(_ => LinkAllAsync(), _ => HasVault && (_docMatches.Count > 0 || _docSuggestions.Count > 0));
         ChooseIndexFileCommand = new(_ => { if (_picker.PickMarkdown() is { Length: > 0 } file) IndexFile = file; });
         ClearIndexFileCommand = new(_ => IndexFile = "");
+        ToggleDocEditorCommand = new(_ => DocEditorOpen = !DocEditorOpen);
         SetDocViewCommand = new(p => DocView = p?.ToString() ?? "List");
         AcceptDocSuggestionCommand = new(p => AcceptSuggestionAsync((p as ProjectDocEntry)?.Project ?? SelectedProject),
             p => SuggestionFor((p as ProjectDocEntry)?.Project ?? SelectedProject) is not null);
@@ -166,6 +172,11 @@ public sealed partial class MainViewModel
         {
             var docs = await _vault.LoadAsync();
             var links = await _repository.GetDocLinksAsync();
+            var readmes = await Task.Run(() => _allProjects.ToArray()
+                .Select(p => (p.Id, Path: ProjectReadme.Find(p.Path)))
+                .Where(x => x.Path is not null)
+                .ToDictionary(x => x.Id, x => x.Path!));
+            _readmes = readmes;
             _snapshots = new(await _repository.GetLatestSnapshotsAsync());
 
             _docs.Clear();
@@ -281,6 +292,7 @@ public sealed partial class MainViewModel
                 _docLinks.GetValueOrDefault(project.Id)?.Manual == true,
                 _docSuggestions.GetValueOrDefault(project.Id)?.Doc,
                 _indexRows.GetValueOrDefault(project.Id),
+                _readmes.GetValueOrDefault(project.Id),
                 _docDrift.GetValueOrDefault(project.Id) ?? new(project.Id, DocDrift.NoDoc, ["No state doc in the vault"]),
                 _snapshots.GetValueOrDefault(project.Id)))
             .Where(Keep)
@@ -328,6 +340,12 @@ public sealed partial class MainViewModel
     public bool SelectedHasDrift => SelectedDrift is { Any: true };
     public string SelectedLinkNote => DocEntryFor(SelectedProject)?.LinkNote ?? "";
 
+    /// <summary>The editor is folded away until asked for: the inspector is for looking at a project,
+    /// and five boxes of prose is not that.</summary>
+    private bool _docEditorOpen;
+    public bool DocEditorOpen { get => _docEditorOpen; set => Set(ref _docEditorOpen, value); }
+    public RelayCommand ToggleDocEditorCommand { get; private set; } = null!;
+
     private bool _docDirty;
     public bool DocDirty { get => _docDirty; private set { if (Set(ref _docDirty, value)) System.Windows.Input.CommandManager.InvalidateRequerySuggested(); } }
 
@@ -342,6 +360,29 @@ public sealed partial class MainViewModel
     public string DocNext { get => _docNext; set { if (Set(ref _docNext, value)) DocDirty = true; } }
     public string DocNotes { get => _docNotes; set { if (Set(ref _docNotes, value)) DocDirty = true; } }
     public IReadOnlyList<string> DocStatusOptions { get; } = ProjectDocStatuses.Known;
+
+    /// <summary>The name shown for the selected project. Blanking it goes back to the folder's own
+    /// name; anything else is remembered against the path and survives the folder disappearing.</summary>
+    public string SelectedProjectName
+    {
+        get => _selectedProject?.Name ?? "";
+        set
+        {
+            if (_selectedProject is not { } project) return;
+            var wanted = value.Trim();
+            var custom = wanted.Length == 0 || wanted.Equals(project.FolderName, StringComparison.Ordinal) ? null : wanted;
+            if (custom == project.CustomName) return;
+            var renamed = project with { Name = custom ?? project.FolderName, CustomName = custom };
+            _selectedProject = renamed;
+            var at = _allProjects.FindIndex(p => p.Id == renamed.Id);
+            if (at >= 0) _allProjects[at] = renamed;
+            _ = QueueWriteAsync(() => _repository.SetProjectNameAsync(renamed.Id, custom));
+            Raise(nameof(SelectedProjectName));
+            Raise(nameof(SelectedProject));
+            Refresh();
+            Status = custom is null ? $"Name reset to {renamed.FolderName}" : $"Renamed to {custom}";
+        }
+    }
 
     private ProjectDocEntry? DocEntryFor(Project? project) =>
         project is null ? null : DocEntries.FirstOrDefault(e => e.Project.Id == project.Id);
@@ -359,12 +400,14 @@ public sealed partial class MainViewModel
         _docBroken = doc?.Section(ProjectDocSections.Broken) ?? "";
         _docNext = doc?.Section(ProjectDocSections.Next) ?? "";
         _docNotes = doc?.Section(ProjectDocSections.Notes) ?? "";
+        Raise(nameof(SelectedProjectName));
         foreach (var name in new[] { nameof(DocStatusValue), nameof(DocSummary), nameof(DocWorks), nameof(DocBroken), nameof(DocNext), nameof(DocNotes),
                                      nameof(SelectedDrift), nameof(SelectedDriftSummary), nameof(SelectedHasDrift), nameof(SelectedLinkNote),
                                      nameof(SelectedSuggestionName), nameof(HasSelectedSuggestion) })
             Raise(name);
         DocDirty = false;
         DocConflicted = false;
+        DocEditorOpen = false;
     }
 
     private void OpenDoc(ProjectDoc? doc)
@@ -507,6 +550,34 @@ public sealed partial class MainViewModel
         if (ProjectDocFormat.Render(updated) == ProjectDocFormat.Render(doc)) { Status = $"{project.Name}'s doc already matches."; return; }
         await WriteDocAsync(updated, $"Updated {Path.GetFileName(doc.FilePath)} from the repo");
         LoadSelectedDoc();
+    }
+
+    /// <summary>Fixes every doc Puppeteer could attach but has not been told to, in one pass: each
+    /// automatic match is written down as a link of its own, and each near-miss it was only willing
+    /// to offer is accepted. Nothing is invented — a project with no candidate stays undocumented.</summary>
+    private async Task LinkAllAsync()
+    {
+        var pending = _allProjects
+            .Where(p => _docLinks.GetValueOrDefault(p.Id) is null)
+            .Select(p => (Project: p, Match: _docMatches.GetValueOrDefault(p.Id) ?? _docSuggestions.GetValueOrDefault(p.Id)))
+            .Where(x => x.Match is not null)
+            .ToArray();
+        if (pending.Length == 0) { Status = "Every project that has a doc is already linked to it."; return; }
+
+        var guesses = pending.Count(x => x.Match!.Confidence == DocMatchConfidence.Suggested);
+        var answer = MessageBox.Show(
+            $"Link {pending.Length} project{(pending.Length == 1 ? "" : "s")} to the doc Puppeteer found for {(pending.Length == 1 ? "it" : "them")}?"
+            + (guesses > 0 ? $"\n\n{guesses} of those are name near-misses rather than certain matches." : "")
+            + "\n\nNo file is changed; you can unlink any of them afterwards.",
+            "Link every project to its doc?", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (answer != MessageBoxResult.Yes) return;
+
+        var now = DateTimeOffset.UtcNow;
+        foreach (var (project, match) in pending)
+            await _repository.SetDocLinkAsync(new(project.Id, match!.Doc.FilePath, true, now));
+        await LoadDocsAsync();
+        LoadSelectedDoc();
+        Status = $"Linked {pending.Length} project{(pending.Length == 1 ? "" : "s")} to a doc";
     }
 
     private async Task SyncAllFactsAsync()
