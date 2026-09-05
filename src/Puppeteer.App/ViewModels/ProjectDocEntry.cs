@@ -49,6 +49,11 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
         : indexRow?.Summary is { Length: > 0 } fromIndex ? FirstLine(fromIndex)
         : Doc is null ? "No state doc yet." : "No summary written.";
 
+    /// <summary>A card is three lines of summary wide, and WPF trims by line, not by height — so the
+    /// text is cut to fit rather than left to clip through the middle of a line.</summary>
+    public string CardSummary => Summary.Length <= 116 ? Summary : Summary[..116].TrimEnd() + "…";
+    public string CardNextStep => NextStep.Length <= 88 ? NextStep : NextStep[..88].TrimEnd() + "…";
+
     public string NextStep => Doc?.Section(ProjectDocSections.Next) is { Length: > 0 } next ? FirstLine(next) : "";
     public bool HasNextStep => NextStep.Length > 0;
 

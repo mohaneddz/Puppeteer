@@ -66,6 +66,16 @@ public sealed partial class MainViewModel
     private string _docSearch = "";
     public string DocSearch { get => _docSearch; set { if (Set(ref _docSearch, value)) RebuildDocEntries(); } }
 
+    /// <summary>The index's own section headings — Web, Mobile, Desktop (Tauri), AI — used as a
+    /// filter, so the page groups the library the way the index already does.</summary>
+    public ObservableCollection<string> DocSections { get; } = ["All"];
+    private string _docSection = "All";
+    public string DocSection { get => _docSection; set { if (Set(ref _docSection, value)) RebuildDocEntries(); } }
+
+    private string _docView = "List";
+    public string DocView { get => _docView; set { if (Set(ref _docView, value)) SavePref("DocsView", value); } }
+    public RelayCommand SetDocViewCommand { get; private set; } = null!;
+
     public bool HasVault => _vault?.VaultPath is not null;
     public string DocsSummary => !HasVault
         ? "No docs folder connected."
@@ -104,10 +114,12 @@ public sealed partial class MainViewModel
         SyncAllDocFactsCommand = new(_ => SyncAllFactsAsync(), _ => HasVault && _docMatches.Count > 0);
         ChooseIndexFileCommand = new(_ => { if (_picker.PickMarkdown() is { Length: > 0 } file) IndexFile = file; });
         ClearIndexFileCommand = new(_ => IndexFile = "");
+        SetDocViewCommand = new(p => DocView = p?.ToString() ?? "List");
         AcceptDocSuggestionCommand = new(p => AcceptSuggestionAsync((p as ProjectDocEntry)?.Project ?? SelectedProject),
             p => SuggestionFor((p as ProjectDocEntry)?.Project ?? SelectedProject) is not null);
         SelectDocEntryCommand = new(p => { if (p is ProjectDocEntry entry) SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project; });
 
+        InitializeReader();
         PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SelectedProject)) { LoadSelectedDoc(); _ = LoadHistoryAsync(); } };
         DocEntries.CollectionChanged += (_, _) => Raise(nameof(DocEntryCount));
         Projects.CollectionChanged += OnProjectsChanged;
@@ -168,6 +180,7 @@ public sealed partial class MainViewModel
             // The inspector is filled in before the vault has finished loading on startup, so the
             // selected project has to be looked at again once the docs are actually here.
             LoadSelectedDoc(fromDisk: true);
+            RefreshReader();
             if (external) Status = "Docs folder changed on disk — reloaded.";
         }
         catch (Exception e) { Status = $"Couldn't read the docs folder: {e.Message}"; }
@@ -190,6 +203,14 @@ public sealed partial class MainViewModel
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return; }
         foreach (var project in _allProjects)
             if (_index.For(project) is { } entry) _indexRows[project.Id] = entry;
+
+        var sections = new[] { "All" }
+            .Concat(_index.Entries.Select(e => e.Section).Where(x => x.Length > 0).Distinct().OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+            .ToArray();
+        if (DocSections.SequenceEqual(sections)) return;
+        DocSections.Clear();
+        foreach (var section in sections) DocSections.Add(section);
+        if (!sections.Contains(_docSection, StringComparer.OrdinalIgnoreCase)) { _docSection = "All"; Raise(nameof(DocSection)); }
     }
 
     public string ResolvedIndexFile
@@ -215,28 +236,31 @@ public sealed partial class MainViewModel
             _docMatches[projectId] = new(doc, DocMatchConfidence.ExactPath, "linked by hand");
             spokenFor.Add(doc.FilePath);
         }
-        // The index states which doc belongs to which project in Mohaned's own words. That outranks
-        // anything matching can work out, and it is the only thing that resolves a folder renamed
-        // away from its doc — Follio to PrivateSchool.md, Pharma-Touch to Ordonance.md.
-        if (_index is not null)
-            foreach (var project in _allProjects)
-            {
-                if (_docMatches.ContainsKey(project.Id) || !_indexRows.TryGetValue(project.Id, out var row)) continue;
-                if (_index.DocPathOf(row) is not { } docPath) continue;
-                var doc = _docs.FirstOrDefault(d => string.Equals(d.FilePath, docPath, StringComparison.OrdinalIgnoreCase));
-                if (doc is null) continue;
-                _docMatches[project.Id] = new(doc, DocMatchConfidence.Index, $"the index links “{row.Name}” to this doc");
-                spokenFor.Add(doc.FilePath);
-            }
-
         var remaining = _docs.Where(d => !spokenFor.Contains(d.FilePath)).ToArray();
         _docSuggestions.Clear();
-        foreach (var (projectId, match) in ProjectDocMatcher.Match(_allProjects.Where(p => !_docMatches.ContainsKey(p.Id)), remaining))
+        var automatic = ProjectDocMatcher.Match(_allProjects.Where(p => !_docMatches.ContainsKey(p.Id)), remaining);
+        foreach (var (projectId, match) in automatic)
         {
             // A near-miss on a name is a guess. Attaching the wrong doc to a project is worse than
             // leaving it undocumented, so it is offered for one click rather than applied.
             if (match.Confidence == DocMatchConfidence.Suggested) _docSuggestions[projectId] = match;
             else _docMatches[projectId] = match;
+        }
+
+        // The index states which doc belongs to which project in Mohaned's own words, so it outranks
+        // matching on a name or a folder — it is the only thing that resolves a folder renamed away
+        // from its doc, Follio to PrivateSchool.md or Pharma-Touch to Ordonance.md. A doc whose own
+        // Location is this exact folder still wins: that is the project saying so itself.
+        if (_index is null) return;
+        foreach (var project in _allProjects)
+        {
+            if (_docLinks.GetValueOrDefault(project.Id)?.Manual == true) continue;
+            if (!_indexRows.TryGetValue(project.Id, out var row) || _index.DocPathOf(row) is not { } docPath) continue;
+            if (_docMatches.GetValueOrDefault(project.Id)?.Confidence >= DocMatchConfidence.ExactPath) continue;
+            var doc = _docs.FirstOrDefault(d => string.Equals(d.FilePath, docPath, StringComparison.OrdinalIgnoreCase));
+            if (doc is null) continue;
+            _docMatches[project.Id] = new(doc, DocMatchConfidence.Index, $"the index links “{row.Name}” to this doc");
+            _docSuggestions.Remove(project.Id);
         }
 
         _docDrift.Clear();
@@ -280,6 +304,12 @@ public sealed partial class MainViewModel
                 _ => entry.Status.Equals(_docFilter, StringComparison.OrdinalIgnoreCase),
             };
             if (!passesFilter) return false;
+            if (!_docSection.Equals("All", StringComparison.OrdinalIgnoreCase))
+            {
+                // A project the index does not list has no section, so it cannot be in the one asked for.
+                var section = _indexRows.GetValueOrDefault(entry.Project.Id)?.Section;
+                if (section is null || !section.Equals(_docSection, StringComparison.OrdinalIgnoreCase)) return false;
+            }
             if (terms.Length == 0) return true;
             var haystack = string.Join(' ', entry.Name, entry.Path, entry.Status, entry.Summary, entry.NextStep, entry.DocName);
             return terms.All(term => haystack.Contains(term, StringComparison.OrdinalIgnoreCase));
@@ -567,6 +597,8 @@ public sealed partial class MainViewModel
         Raise(nameof(DocsFolder));
         _indexFile = await _repository.GetSettingAsync("DocsIndexFile") ?? "";
         Raise(nameof(IndexFile));
+        _docView = await _repository.GetSettingAsync("DocsView") ?? _docView;
+        Raise(nameof(DocView));
         _docsAutoSnapshot = await _repository.GetSettingAsync("DocsAutoSnapshot") != "0";
         Raise(nameof(DocsAutoSnapshot));
         OpenVault();

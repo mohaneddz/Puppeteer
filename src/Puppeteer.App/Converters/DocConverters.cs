@@ -60,3 +60,14 @@ public sealed class LocalDateConverter : IValueConverter
         value is DateTimeOffset when ? when.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "";
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
+
+/// <summary>True when two bound values read the same. Used to light the reader's active tab, where
+/// the tab and the selection live on different data contexts.</summary>
+public sealed class EqualsMultiConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length == 2 && string.Equals(values[0]?.ToString(), values[1]?.ToString(), StringComparison.Ordinal);
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
+}

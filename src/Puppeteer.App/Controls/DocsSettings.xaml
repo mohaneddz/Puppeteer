@@ -4,11 +4,12 @@
   <StackPanel>
     <TextBlock Text="Project docs" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
     <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,10"
-               Text="A folder holding one markdown doc per project — what it is, what works, what is broken, what comes next. Puppeteer reads what is already there and matches each doc to a project. Editing the files outside Puppeteer is expected: it reloads when they change and refuses to save over an edit it has not seen."/>
+               Text="Two files' worth of setup: the folder holding one markdown doc per project, and the single index that maps the library. Puppeteer reads what is already there and matches each doc to a project. Editing outside Puppeteer is expected — it reloads when a file changes and refuses to save over an edit it has not seen."/>
+
     <Border Style="{StaticResource SettingRow}">
       <StackPanel>
-        <TextBlock Text="Docs folder" Style="{StaticResource SettingLabel}"/>
-        <TextBlock Text="For example D:\Programming\Resources\Projects. Leave blank to turn the Docs page off." Style="{StaticResource SettingHint}"/>
+        <TextBlock Text="States folder" Style="{StaticResource SettingLabel}"/>
+        <TextBlock Text="One doc per project, in category subfolders — for example D:\Programming\Resources\Projects. Leave blank to turn the Docs page off." Style="{StaticResource SettingHint}"/>
         <Grid Margin="0,10,0,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
@@ -20,6 +21,27 @@
         <TextBlock Text="{Binding DocsSummary}" Style="{StaticResource SettingHint}" Margin="2,10,0,0"/>
       </StackPanel>
     </Border>
+
+    <Border Style="{StaticResource SettingRow}">
+      <StackPanel>
+        <TextBlock Text="Projects index" Style="{StaticResource SettingLabel}"/>
+        <TextBlock Text="The one markdown file that lists every project and links to its doc. Puppeteer reads the archived and paused markers from it, and uses its links to find docs whose folder has since been renamed. Leave blank to use a projects.md sitting in the states folder. Never written to." Style="{StaticResource SettingHint}"/>
+        <Grid Margin="0,10,0,0">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+          </Grid.ColumnDefinitions>
+          <TextBox Text="{Binding IndexFile, UpdateSourceTrigger=LostFocus}" FontFamily="{StaticResource MonoFont}"/>
+          <Button Grid.Column="1" Margin="8,0,0,0" Padding="12,9" Content="Browse" Command="{Binding ChooseIndexFileCommand}"/>
+          <Button Grid.Column="2" Margin="6,0,0,0" Padding="12,9" Content="Clear" Command="{Binding ClearIndexFileCommand}"/>
+        </Grid>
+        <Grid Margin="2,10,0,0">
+          <TextBlock Text="{Binding IndexSummary}" Style="{StaticResource SettingHint}"/>
+          <TextBlock HorizontalAlignment="Right" Text="{Binding ResolvedIndexFile}" Style="{StaticResource SettingHint}"
+                     FontFamily="{StaticResource MonoFont}" TextTrimming="CharacterEllipsis" MaxWidth="360"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+
     <Border Style="{StaticResource SettingRow}">
       <Grid>
         <StackPanel Margin="0,0,20,0">
