@@ -3,7 +3,7 @@ namespace Puppeteer.Core;
 /// <summary>How sure Puppeteer is that a doc describes a project. Anything below
 /// <see cref="Suggested"/> is not a match; <see cref="Suggested"/> is offered to the user but never
 /// linked on its own, because silently attaching the wrong doc to a project is worse than none.</summary>
-public enum DocMatchConfidence { None = 0, Suggested = 1, Ancestor = 2, Name = 3, FolderName = 4, ExactPath = 5 }
+public enum DocMatchConfidence { None = 0, Suggested = 1, Ancestor = 2, Name = 3, FolderName = 4, Index = 5, ExactPath = 6 }
 
 public sealed record DocMatch(ProjectDoc Doc, DocMatchConfidence Confidence, string Reason);
 

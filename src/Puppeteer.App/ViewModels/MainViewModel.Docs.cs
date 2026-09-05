@@ -21,6 +21,8 @@ public sealed partial class MainViewModel
     private readonly Dictionary<Guid, ProjectDocLink> _docLinks = [];
     private readonly Dictionary<Guid, DocDriftReport> _docDrift = [];
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
+    private ProjectIndexLookup? _index;
+    private readonly Dictionary<Guid, ProjectIndexEntry> _indexRows = [];
     // Our own save fires the vault watcher a moment later. Remember what we just wrote so the app
     // does not announce its own edit as an external one.
     private (string Path, DateTime At) _lastWrite;
@@ -35,6 +37,21 @@ public sealed partial class MainViewModel
         get => _docsFolder;
         set { if (!Set(ref _docsFolder, value)) return; SavePref("DocsFolder", value.Trim()); OpenVault(); }
     }
+
+    private string _indexFile = "";
+    /// <summary>The single markdown file that maps the whole library and links to the per-project
+    /// docs. Read only — Puppeteer takes each row's marker and one-line summary from it, and never
+    /// writes to it, because it is mostly hand-written prose.</summary>
+    public string IndexFile
+    {
+        get => _indexFile;
+        set { if (!Set(ref _indexFile, value)) return; SavePref("DocsIndexFile", value.Trim()); _ = LoadDocsAsync(); }
+    }
+
+    public bool HasIndex => _index is not null;
+    public string IndexSummary => _index is null
+        ? "No index file connected."
+        : $"{_index.Entries.Count} rows · {_indexRows.Count} matched to a project";
 
     private bool _docsAutoSnapshot = true;
     public bool DocsAutoSnapshot
@@ -67,6 +84,8 @@ public sealed partial class MainViewModel
     public AsyncRelayCommand SyncDocFactsCommand { get; private set; } = null!;
     public AsyncRelayCommand SyncAllDocFactsCommand { get; private set; } = null!;
     public RelayCommand SelectDocEntryCommand { get; private set; } = null!;
+    public RelayCommand ChooseIndexFileCommand { get; private set; } = null!;
+    public RelayCommand ClearIndexFileCommand { get; private set; } = null!;
     public AsyncRelayCommand AcceptDocSuggestionCommand { get; private set; } = null!;
 
     private void InitializeDocs()
@@ -83,6 +102,8 @@ public sealed partial class MainViewModel
         RevertDocCommand = new(_ => ReloadSelectedDocAsync(), _ => SelectedDoc is not null);
         SyncDocFactsCommand = new(_ => SyncFactsAsync(SelectedProject), _ => DescribesItsOwnFolder(SelectedProject));
         SyncAllDocFactsCommand = new(_ => SyncAllFactsAsync(), _ => HasVault && _docMatches.Count > 0);
+        ChooseIndexFileCommand = new(_ => { if (_picker.PickMarkdown() is { Length: > 0 } file) IndexFile = file; });
+        ClearIndexFileCommand = new(_ => IndexFile = "");
         AcceptDocSuggestionCommand = new(p => AcceptSuggestionAsync((p as ProjectDocEntry)?.Project ?? SelectedProject),
             p => SuggestionFor((p as ProjectDocEntry)?.Project ?? SelectedProject) is not null);
         SelectDocEntryCommand = new(p => { if (p is ProjectDocEntry entry) SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project; });
@@ -140,15 +161,45 @@ public sealed partial class MainViewModel
             _docLinks.Clear();
             foreach (var link in links) _docLinks[link.ProjectId] = link;
 
+            LoadIndex();
             MatchDocs();
             RebuildDocEntries();
-            Raise(nameof(DocsSummary));
+            Raise(nameof(DocsSummary)); Raise(nameof(HasIndex)); Raise(nameof(IndexSummary));
             // The inspector is filled in before the vault has finished loading on startup, so the
             // selected project has to be looked at again once the docs are actually here.
             LoadSelectedDoc(fromDisk: true);
             if (external) Status = "Docs folder changed on disk — reloaded.";
         }
         catch (Exception e) { Status = $"Couldn't read the docs folder: {e.Message}"; }
+    }
+
+    /// <summary>Reads the index, defaulting to a projects.md sitting beside the docs when no file has
+    /// been chosen — which is where it lives in the layout this was built against.</summary>
+    private void LoadIndex()
+    {
+        _index = null;
+        _indexRows.Clear();
+        var path = _indexFile;
+        if (string.IsNullOrWhiteSpace(path) && _vault?.VaultPath is { } vault)
+        {
+            var beside = Path.Combine(vault, "projects.md");
+            if (File.Exists(beside)) path = beside;
+        }
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+        try { _index = new(ProjectIndex.Parse(File.ReadAllText(path)), _vault?.VaultPath); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return; }
+        foreach (var project in _allProjects)
+            if (_index.For(project) is { } entry) _indexRows[project.Id] = entry;
+    }
+
+    public string ResolvedIndexFile
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(_indexFile)) return _indexFile;
+            var beside = _vault?.VaultPath is { } vault ? Path.Combine(vault, "projects.md") : "";
+            return File.Exists(beside) ? beside : "";
+        }
     }
 
     private void MatchDocs()
@@ -164,6 +215,20 @@ public sealed partial class MainViewModel
             _docMatches[projectId] = new(doc, DocMatchConfidence.ExactPath, "linked by hand");
             spokenFor.Add(doc.FilePath);
         }
+        // The index states which doc belongs to which project in Mohaned's own words. That outranks
+        // anything matching can work out, and it is the only thing that resolves a folder renamed
+        // away from its doc — Follio to PrivateSchool.md, Pharma-Touch to Ordonance.md.
+        if (_index is not null)
+            foreach (var project in _allProjects)
+            {
+                if (_docMatches.ContainsKey(project.Id) || !_indexRows.TryGetValue(project.Id, out var row)) continue;
+                if (_index.DocPathOf(row) is not { } docPath) continue;
+                var doc = _docs.FirstOrDefault(d => string.Equals(d.FilePath, docPath, StringComparison.OrdinalIgnoreCase));
+                if (doc is null) continue;
+                _docMatches[project.Id] = new(doc, DocMatchConfidence.Index, $"the index links “{row.Name}” to this doc");
+                spokenFor.Add(doc.FilePath);
+            }
+
         var remaining = _docs.Where(d => !spokenFor.Contains(d.FilePath)).ToArray();
         _docSuggestions.Clear();
         foreach (var (projectId, match) in ProjectDocMatcher.Match(_allProjects.Where(p => !_docMatches.ContainsKey(p.Id)), remaining))
@@ -191,6 +256,7 @@ public sealed partial class MainViewModel
                 _docMatches.GetValueOrDefault(project.Id)?.Confidence ?? DocMatchConfidence.None,
                 _docLinks.GetValueOrDefault(project.Id)?.Manual == true,
                 _docSuggestions.GetValueOrDefault(project.Id)?.Doc,
+                _indexRows.GetValueOrDefault(project.Id),
                 _docDrift.GetValueOrDefault(project.Id) ?? new(project.Id, DocDrift.NoDoc, ["No state doc in the vault"]),
                 _snapshots.GetValueOrDefault(project.Id)))
             .Where(Keep)
@@ -499,6 +565,8 @@ public sealed partial class MainViewModel
     {
         _docsFolder = await _repository.GetSettingAsync("DocsFolder") ?? "";
         Raise(nameof(DocsFolder));
+        _indexFile = await _repository.GetSettingAsync("DocsIndexFile") ?? "";
+        Raise(nameof(IndexFile));
         _docsAutoSnapshot = await _repository.GetSettingAsync("DocsAutoSnapshot") != "0";
         Raise(nameof(DocsAutoSnapshot));
         OpenVault();

@@ -4,7 +4,7 @@ namespace Puppeteer.App.ViewModels;
 
 /// <summary>One row of the Docs page: a project, the doc that describes it (if any), and how far the
 /// two have drifted apart.</summary>
-public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, DocDriftReport drift, ProjectStateSnapshot? snapshot)
+public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, ProjectIndexEntry? indexRow, DocDriftReport drift, ProjectStateSnapshot? snapshot)
 {
     public Project Project { get; } = project;
     public ProjectDoc? Doc { get; } = doc;
@@ -21,12 +21,23 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
     public bool HasSuggestion => Doc is null && suggestion is not null;
     public string SuggestionName => suggestion is null ? "" : System.IO.Path.GetFileName(suggestion.FilePath);
 
-    public string Status => Doc is null ? "Undocumented" : ProjectDocStatuses.Parse(Doc.Status) ?? "Unlabelled";
+    /// <summary>The doc's own Status field first, then whatever the index row was marked with — the
+    /// archived and paused labels live there today, not in the docs.</summary>
+    public string Status =>
+        ProjectDocStatuses.Parse(Doc?.Status) ?? indexRow?.Status
+        ?? (Doc is null ? "Undocumented" : "Unlabelled");
+
+    /// <summary>The index's raw label when it says something the status list does not — "Container",
+    /// "NEW, undocumented", "VENDORED".</summary>
+    public string IndexNote => indexRow?.Status is null && indexRow?.Marker is { Length: > 0 } marker ? marker : "";
+    public bool HasIndexNote => IndexNote.Length > 0;
+    public string Client => indexRow?.Client ?? "";
 
     /// <summary>Why this doc was attached, shown so an automatic guess can be recognised as one.</summary>
     public string LinkNote => Doc is null ? "" : manual ? "linked by hand" : confidence switch
     {
         DocMatchConfidence.ExactPath => "matched on path",
+        DocMatchConfidence.Index => "linked from the index",
         DocMatchConfidence.FolderName => "matched on folder name",
         DocMatchConfidence.Name => "matched on name",
         DocMatchConfidence.Ancestor => "part of a documented folder",
@@ -35,6 +46,7 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
 
     public string Summary => Doc?.Section(ProjectDocSections.Summary) is { Length: > 0 } summary
         ? FirstLine(summary)
+        : indexRow?.Summary is { Length: > 0 } fromIndex ? FirstLine(fromIndex)
         : Doc is null ? "No state doc yet." : "No summary written.";
 
     public string NextStep => Doc?.Section(ProjectDocSections.Next) is { Length: > 0 } next ? FirstLine(next) : "";
