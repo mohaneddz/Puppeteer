@@ -26,6 +26,15 @@ Built with **.NET 10** and **WPF**.
 - Open a project in Explorer or your IDE, or copy its path.
 - Live Git status: a dot on every card with uncommitted changes, refreshed in the background after each load, and the branch plus changed files in the inspector.
 
+**Documenting**
+- Connect a **docs folder** — one markdown doc per project, holding what it is, what works, what's broken, and what comes next — and Puppeteer matches each doc to a project and shows the two side by side.
+- The folder is expected to be edited from outside. Puppeteer reloads when a doc changes underneath it, and refuses to save over an edit it hasn't seen rather than overwriting it.
+- Matching survives folders being moved and renamed: exact path, then folder name, then the doc's own names (its title, its file name, and anything in an `Aliases:` field). A near-miss is offered for one click, never applied on its own. A doc describing a folder that holds several repos covers all of them.
+- The **Docs** page ranks by what needs attention and spells out the drift: location moved, stack no longer matches, newer commits than the doc, empty sections, plus live repo facts — uncommitted work, unpushed commits, parked on a branch.
+- **Sync facts** rewrites only `Location`, `Stack` and `Last activity` from the repo, for one doc or every linked one. Prose sections are yours and are never touched.
+- Edit a doc's status and its five sections straight from the inspector, or open the file in your editor.
+- A **state history** records each project's branch, head commit and uncommitted count after every git refresh — a row only when something actually changed.
+
 **Living in the tray**
 - A notification-area icon that reports how many sessions are live, with Open, New terminal and Quit.
 - Minimize and/or close to the tray instead of quitting; a warning before quitting stops running terminals.
@@ -45,6 +54,7 @@ Built with **.NET 10** and **WPF**.
 - **Terminal** — default shell, scrollback depth, whether to confirm quitting with sessions running.
 - **Appearance** — comfortable or compact card density.
 - **Tools** — an Open-in-IDE command (`code`, `rider`, `subl`), or leave it blank for the shell default.
+- **Project docs** — the folder of per-project state docs, and whether to keep a state history.
 - **AI categorization** — see below.
 - **Data** — reset the window layout, or open the folder holding the database.
 
@@ -56,6 +66,36 @@ Categorizing a project as *personal*, *client*, *hackathon* or *coursework* is d
 - **Anywhere:** paste a key into **Settings → AI categorization**; it overrides the `.env` value and is stored locally.
 
 Without a key, the path-based heuristic is used on its own.
+
+## Project docs
+
+Point **Settings → Project docs** at a folder of markdown docs, one per project — for example `D:\Programming\Resources\Projects`. The shape Puppeteer reads and writes is:
+
+```markdown
+# Hive
+
+**Location:** D:\Programming\Desktop\Tauri\Personal\Hive
+**Category:** Desktop (Tauri)
+**Client or personal:** Personal
+**Status:** Active
+**Stack:** Tauri 2 + Rust, React 19, SQLite
+
+## Summary
+## What works
+## What's broken / incomplete
+## Next steps
+## Notes
+```
+
+Only `Status` is Puppeteer's own addition, and it is optional; everything else is read if present and left alone if not. Fields and sections it doesn't recognise keep their place, and a markdown file with neither a title nor a header field is treated as a stray and never rewritten.
+
+Docs are matched to projects automatically. When a doc's name no longer matches its folder, record the other names in it:
+
+```markdown
+**Aliases:** FOLIO, Follio
+```
+
+A link you make by hand always wins over automatic matching.
 
 ## Running
 
