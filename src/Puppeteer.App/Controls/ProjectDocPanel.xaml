@@ -6,20 +6,6 @@
     <conv:DocStatusBrushConverter x:Key="DocStatusBrush"/>
     <conv:SnapshotLineConverter x:Key="SnapshotLine"/>
     <conv:LocalDateConverter x:Key="LocalDate"/>
-    <Style x:Key="DocEditor" TargetType="TextBox">
-      <Setter Property="AcceptsReturn" Value="True"/>
-      <Setter Property="TextWrapping" Value="Wrap"/>
-      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-      <Setter Property="MaxHeight" Value="190"/>
-      <Setter Property="FontSize" Value="12.5"/>
-      <Setter Property="Margin" Value="0,0,0,12"/>
-    </Style>
-    <Style x:Key="DocEditorLabel" TargetType="TextBlock">
-      <Setter Property="FontSize" Value="11.5"/>
-      <Setter Property="FontWeight" Value="Medium"/>
-      <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
-      <Setter Property="Margin" Value="2,0,0,5"/>
-    </Style>
   </UserControl.Resources>
 
   <StackPanel Visibility="{Binding HasVault, Converter={StaticResource BoolVis}}">
@@ -70,6 +56,14 @@
         </Button>
       </Grid>
 
+      <Button Command="{Binding OpenReaderCommand}" Margin="0,12,0,0" Padding="11,9" HorizontalAlignment="Stretch"
+              ToolTip="Read the doc and this project's README">
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+          <Path Style="{StaticResource IconPath}" Data="{StaticResource IconDoc}" Width="13" Height="13"/>
+          <TextBlock Text="Read" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12"/>
+        </StackPanel>
+      </Button>
+
       <!-- Drift -->
       <Border Margin="0,12,0,0" Padding="12,10" CornerRadius="9" Background="{StaticResource ChipBrush}"
               BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
@@ -83,58 +77,6 @@
           </Button>
         </StackPanel>
       </Border>
-
-      <!-- Someone else changed the file while there were unsaved edits here -->
-      <Border Margin="0,12,0,0" Padding="12,10" CornerRadius="9" Background="{StaticResource ChipBrush}"
-              BorderBrush="{StaticResource DangerBrush}" BorderThickness="1"
-              Visibility="{Binding DocConflicted, Converter={StaticResource BoolVis}}">
-        <StackPanel>
-          <TextBlock Text="Changed on disk" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}"/>
-          <TextBlock Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,5,0,0"
-                     Text="This doc was edited somewhere else while you had unsaved changes here. Saving would overwrite that edit."/>
-          <Button Command="{Binding RevertDocCommand}" Margin="0,10,0,0" Padding="10,7" HorizontalAlignment="Left">
-            <TextBlock Text="Discard mine and reload" FontSize="12"/>
-          </Button>
-        </StackPanel>
-      </Border>
-
-      <TextBlock Text="Status" Style="{StaticResource DocEditorLabel}" Margin="2,16,0,5"/>
-      <ComboBox ItemsSource="{Binding DocStatusOptions}" SelectedItem="{Binding DocStatusValue}" Margin="0,0,0,14"/>
-
-      <TextBlock Text="Summary" Style="{StaticResource DocEditorLabel}"/>
-      <TextBox Style="{StaticResource DocEditor}" Text="{Binding DocSummary, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <TextBlock Text="What works" Style="{StaticResource DocEditorLabel}"/>
-      <TextBox Style="{StaticResource DocEditor}" Text="{Binding DocWorks, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <TextBlock Text="What's broken / incomplete" Style="{StaticResource DocEditorLabel}"/>
-      <TextBox Style="{StaticResource DocEditor}" Text="{Binding DocBroken, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <TextBlock Text="Next steps" Style="{StaticResource DocEditorLabel}"/>
-      <TextBox Style="{StaticResource DocEditor}" Text="{Binding DocNext, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <TextBlock Text="Notes" Style="{StaticResource DocEditorLabel}"/>
-      <TextBox Style="{StaticResource DocEditor}" Text="{Binding DocNotes, UpdateSourceTrigger=PropertyChanged}"/>
-
-      <Grid>
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/>
-        </Grid.ColumnDefinitions>
-        <Button Style="{StaticResource AccentOutlineButton}" Command="{Binding SaveDocCommand}" Padding="12,10">
-          <TextBlock Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="12.5">
-            <Run Text="Save doc"/>
-          </TextBlock>
-        </Button>
-        <Button Grid.Column="2" Command="{Binding RevertDocCommand}" Padding="12,10" ToolTip="Throw away unsaved edits">
-          <TextBlock Text="Revert" FontSize="12.5"/>
-        </Button>
-      </Grid>
-      <TextBlock Text="Unsaved changes" FontSize="11" Foreground="{StaticResource AccentBrightBrush}" Margin="2,7,0,0"
-                 Visibility="{Binding DocDirty, Converter={StaticResource BoolVis}}"/>
-      <Button Command="{Binding UnlinkDocCommand}" Margin="0,10,0,0" Padding="10,8" HorizontalAlignment="Left"
-              ToolTip="Detach this doc. The file is not deleted.">
-        <TextBlock Text="Unlink doc" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
-      </Button>
     </StackPanel>
 
     <!-- History -->

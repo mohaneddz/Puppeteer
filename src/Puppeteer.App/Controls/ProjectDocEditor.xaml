@@ -1,0 +1,102 @@
+<UserControl x:Class="Puppeteer.App.Controls.ProjectDocEditor"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <UserControl.Resources>
+    <!-- Based on the window's own TextBox style: a keyed style with no BasedOn drops every themed
+         setter and the box arrives as a white WPF default. -->
+    <Style x:Key="DocEditorBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+      <Setter Property="AcceptsReturn" Value="True"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="VerticalContentAlignment" Value="Top"/>
+      <Setter Property="MinHeight" Value="76"/>
+      <Setter Property="MaxHeight" Value="220"/>
+      <Setter Property="Padding" Value="11,9"/>
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="Margin" Value="0,0,0,12"/>
+    </Style>
+    <Style x:Key="DocEditorLabel" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="11.5"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+      <Setter Property="Margin" Value="2,0,0,5"/>
+    </Style>
+  </UserControl.Resources>
+
+  <StackPanel Visibility="{Binding HasSelectedDoc, Converter={StaticResource BoolVis}}">
+    <!-- Header doubles as the toggle -->
+    <Button Command="{Binding ToggleDocEditorCommand}" Style="{StaticResource CardLinkButton}" Margin="0,26,0,0" Padding="0,6">
+      <Grid>
+        <StackPanel Orientation="Horizontal">
+          <Path Width="11" Height="11" Stretch="Uniform" StrokeThickness="1.7" VerticalAlignment="Center"
+                Stroke="{StaticResource MutedTextBrush}">
+            <Path.Style>
+              <Style TargetType="Path">
+                <Setter Property="Data" Value="{StaticResource IconChevronRight}"/>
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding DocEditorOpen}" Value="True">
+                    <Setter Property="Data" Value="{StaticResource IconChevronDown}"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </Path.Style>
+          </Path>
+          <TextBlock Text="Edit state doc" Style="{StaticResource SectionTitle}" Margin="9,0,0,0" VerticalAlignment="Center"/>
+        </StackPanel>
+        <TextBlock HorizontalAlignment="Right" VerticalAlignment="Center" Text="Unsaved" FontSize="11"
+                   Foreground="{StaticResource AccentBrightBrush}"
+                   Visibility="{Binding DocDirty, Converter={StaticResource BoolVis}}"/>
+      </Grid>
+    </Button>
+
+    <StackPanel Margin="0,12,0,0" Visibility="{Binding DocEditorOpen, Converter={StaticResource BoolVis}}">
+      <!-- Someone else changed the file while there were unsaved edits here -->
+      <Border Margin="0,0,0,14" Padding="12,10" CornerRadius="9" Background="{StaticResource ChipBrush}"
+              BorderBrush="{StaticResource DangerBrush}" BorderThickness="1"
+              Visibility="{Binding DocConflicted, Converter={StaticResource BoolVis}}">
+        <StackPanel>
+          <TextBlock Text="Changed on disk" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource DangerBrush}"/>
+          <TextBlock Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,5,0,0"
+                     Text="This doc was edited somewhere else while you had unsaved changes here. Saving would overwrite that edit."/>
+          <Button Command="{Binding RevertDocCommand}" Margin="0,10,0,0" Padding="10,7" HorizontalAlignment="Left">
+            <TextBlock Text="Discard mine and reload" FontSize="12"/>
+          </Button>
+        </StackPanel>
+      </Border>
+
+      <TextBlock Text="Status" Style="{StaticResource DocEditorLabel}"/>
+      <ComboBox ItemsSource="{Binding DocStatusOptions}" SelectedItem="{Binding DocStatusValue}" Margin="0,0,0,14"/>
+
+      <TextBlock Text="Summary" Style="{StaticResource DocEditorLabel}"/>
+      <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocSummary, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Text="What works" Style="{StaticResource DocEditorLabel}"/>
+      <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocWorks, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Text="What's broken / incomplete" Style="{StaticResource DocEditorLabel}"/>
+      <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocBroken, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Text="Next steps" Style="{StaticResource DocEditorLabel}"/>
+      <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocNext, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <TextBlock Text="Notes" Style="{StaticResource DocEditorLabel}"/>
+      <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocNotes, UpdateSourceTrigger=PropertyChanged}"/>
+
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <Button Style="{StaticResource AccentOutlineButton}" Command="{Binding SaveDocCommand}" Padding="12,10">
+          <TextBlock Text="Save doc" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="12.5"/>
+        </Button>
+        <Button Grid.Column="2" Command="{Binding RevertDocCommand}" Padding="12,10" ToolTip="Throw away unsaved edits">
+          <TextBlock Text="Revert" FontSize="12.5"/>
+        </Button>
+      </Grid>
+      <Button Command="{Binding UnlinkDocCommand}" Margin="0,10,0,0" Padding="10,8" HorizontalAlignment="Left"
+              ToolTip="Detach this doc. The file is not deleted.">
+        <TextBlock Text="Unlink doc" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+      </Button>
+    </StackPanel>
+  </StackPanel>
+</UserControl>

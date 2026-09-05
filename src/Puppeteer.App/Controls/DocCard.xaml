@@ -29,6 +29,10 @@
                   Visibility="{Binding HasIndexNote, Converter={StaticResource BoolVis}}">
             <TextBlock Text="{Binding IndexNote}" FontSize="10.5" Foreground="{StaticResource MutedTextBrush}"/>
           </Border>
+          <Border Margin="6,0,0,0" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="7,2"
+                  Visibility="{Binding HasReadme, Converter={StaticResource BoolVis}}" ToolTip="{Binding ReadmePath}">
+            <TextBlock Text="README" FontSize="10.5" Foreground="{StaticResource MutedTextBrush}"/>
+          </Border>
         </StackPanel>
       </StackPanel>
 

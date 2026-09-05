@@ -54,6 +54,13 @@
               <TextBlock Text="Index" Margin="8,0,0,0" VerticalAlignment="Center"/>
             </StackPanel>
           </Button>
+          <Button Command="{Binding LinkAllDocsCommand}" Margin="8,0,0,0" Padding="12,8"
+                  ToolTip="Attach every project to the doc Puppeteer found for it, near-misses included">
+            <StackPanel Orientation="Horizontal">
+              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlusCircle}" Width="13" Height="13"/>
+              <TextBlock Text="Link all" Margin="8,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
           <Button Command="{Binding ReloadDocsCommand}" Margin="8,0,0,0" Padding="12,8" ToolTip="Re-read every doc from disk">
             <StackPanel Orientation="Horizontal">
               <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
@@ -150,6 +157,11 @@
                                   BorderThickness="1" CornerRadius="6" Padding="8,2" VerticalAlignment="Center"
                                   Visibility="{Binding HasIndexNote, Converter={StaticResource BoolVis}}">
                             <TextBlock Text="{Binding IndexNote}" FontSize="11" Foreground="{StaticResource MutedTextBrush}"/>
+                          </Border>
+                          <Border Margin="6,0,0,0" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}"
+                                  BorderThickness="1" CornerRadius="6" Padding="8,2" VerticalAlignment="Center"
+                                  Visibility="{Binding HasReadme, Converter={StaticResource BoolVis}}" ToolTip="{Binding ReadmePath}">
+                            <TextBlock Text="README" FontSize="11" Foreground="{StaticResource MutedTextBrush}"/>
                           </Border>
                           <TextBlock Text="{Binding LinkNote}" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11"
                                      Foreground="{StaticResource FaintBrush}"/>

@@ -71,6 +71,11 @@
           </Border>
         </StackPanel>
 
+        <!-- Name -->
+        <TextBlock Text="Name" Style="{StaticResource SectionTitle}" Margin="0,22,0,8"/>
+        <TextBox Text="{Binding SelectedProjectName, UpdateSourceTrigger=LostFocus}"
+                 ToolTip="Shown instead of the folder name. Clear it to go back to the folder's own name."/>
+
         <!-- Stack -->
         <TextBlock Text="Stack" Style="{StaticResource SectionTitle}" Margin="0,22,0,10"/>
         <ItemsControl ItemsSource="{Binding SelectedProject.Technologies}">
@@ -284,6 +289,8 @@
             </DataTemplate>
           </ItemsControl.ItemTemplate>
         </ItemsControl>
+
+        <local:ProjectDocEditor/>
       </StackPanel>
     </ScrollViewer>
   </Grid>
