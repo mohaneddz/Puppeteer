@@ -33,6 +33,9 @@ Built with **.NET 10** and **WPF**.
 - The **Docs** page ranks by what needs attention and spells out the drift: location moved, stack no longer matches, newer commits than the doc, empty sections, plus live repo facts — uncommitted work, unpushed commits, parked on a branch.
 - **Sync facts** rewrites only `Location`, `Stack` and `Last activity` from the repo, for one doc or every linked one. Prose sections are yours and are never touched.
 - Edit a doc's status and its five sections straight from the inspector, or open the file in your editor.
+- **Read** any project's state doc, its own README, or the index itself, rendered in the app — headings, lists, tables, code and links.
+- Connect the **projects index** too: the one markdown file that lists everything. Puppeteer takes each row's archived/paused marker and one-line summary from it, and uses its links to find docs whose folder has since been renamed.
+- Grid or list, a search box, a state filter, and a section filter drawn from the index's own headings.
 - A **state history** records each project's branch, head commit and uncommitted count after every git refresh — a row only when something actually changed.
 
 **Living in the tray**
@@ -54,7 +57,7 @@ Built with **.NET 10** and **WPF**.
 - **Terminal** — default shell, scrollback depth, whether to confirm quitting with sessions running.
 - **Appearance** — comfortable or compact card density.
 - **Tools** — an Open-in-IDE command (`code`, `rider`, `subl`), or leave it blank for the shell default.
-- **Project docs** — the folder of per-project state docs, and whether to keep a state history.
+- **Project docs** — the folder of per-project state docs, the projects index, and whether to keep a state history.
 - **AI categorization** — see below.
 - **Data** — reset the window layout, or open the folder holding the database.
 
@@ -95,7 +98,37 @@ Docs are matched to projects automatically. When a doc's name no longer matches 
 **Aliases:** FOLIO, Follio
 ```
 
-A link you make by hand always wins over automatic matching.
+## The index
+
+The second half of the setup is the single markdown file that lists every project and links to its doc — `projects.md` beside the docs, unless **Settings → Project docs → Projects index** points elsewhere. Rows look like this:
+
+```markdown
+## Web
+| Project | Location | Client | Summary |
+|---|---|---|---|
+| [Cosmetocare](Web/Cosmetocare.md) | `Web\Personal\Cosmetocare` | Personal | Ingredient safety platform. |
+| **[ARCHIVED]** [HackatonBackend](Web/HackatonBackend.md) | *(no longer on disk)* | Hackathon | RAG chatbot API. |
+```
+
+Puppeteer reads three things from it and writes none:
+
+- **Which doc belongs to which project.** This is the only thing that finds a doc after its folder was renamed — Follio's doc is still `PrivateSchool.md`, Pharma-Touch's is still `Ordonance.md`. There is no alias table in the app; the index is the alias table.
+- **The bracketed marker** — `**[ARCHIVED]**`, `**[PAUSED]**` — as the project's status, for the many docs that carry no `Status` field.
+- **The row's summary and section**, which stand in for a project with no doc and drive the section filter.
+
+It is mostly hand-written prose with tables in it, so the parser takes only what is unambiguous and skips the rest rather than guessing.
+
+## Matching, in order
+
+1. A link you made by hand.
+2. A doc whose `Location` is the project's exact folder.
+3. What the index says.
+4. The doc's `Location` ending in the same folder name.
+5. The doc's own names — title, file name, `Aliases`.
+6. A doc describing a folder the project sits inside, which covers every repo in it.
+
+A near-miss on a name is never applied; it is offered as one click.
+
 
 ## Running
 
