@@ -19,3 +19,4 @@ public static class ServiceCollectionExtensions
         .AddSingleton<IProjectClassifier>(_ => new GroqProjectClassifier(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) }))
         .AddSingleton<ProjectSearchService>();
 }
+        .AddSingleton<IProjectBackupService>(_ => new ProjectBackupService(databasePath))

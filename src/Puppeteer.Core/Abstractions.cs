@@ -134,3 +134,14 @@ public interface IFileSystemWatchService : IDisposable
     void Watch(RootFolder root);
     void Stop(Guid rootId);
 }
+/// <summary>Creates and restores a portable copy of Puppeteer's complete local library state.
+/// Backups contain the database only: they remember projects, roots, customizations, links and
+/// preferences, but never copy or overwrite the project folders themselves.</summary>
+public interface IProjectBackupService
+{
+    Task<BackupResult> CreateAsync(string backupPath, CancellationToken cancellationToken = default);
+    Task<BackupResult> RestoreAsync(string backupPath, CancellationToken cancellationToken = default);
+}
+
+public sealed record BackupResult(int RootCount, int ProjectCount);
+
