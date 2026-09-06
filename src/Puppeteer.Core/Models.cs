@@ -19,7 +19,8 @@ public sealed record Project(
     IReadOnlyList<ProjectSession>? Sessions = null,
     string? Category = null,
     bool IconFill = false,
-    string? CustomName = null)
+    string? CustomName = null,
+    string IconShape = "Rounded")
 {
     /// <summary>What the folder is called on disk, regardless of what the user renamed it to here.</summary>
     public string FolderName => System.IO.Path.GetFileName(System.IO.Path.TrimEndingDirectorySeparator(Path));
@@ -72,7 +73,8 @@ public sealed record ProjectPreference(
     string? CustomName = null,
     string? IconPath = null,
     bool? IconFill = null,
-    string? Category = null);
+    string? Category = null,
+    string? IconShape = null);
 public sealed record ProjectSession(string Name, string Command, string Duration, bool Running);
 public sealed record ProjectDetectionResult(string PrimaryTechnology, IReadOnlyList<string> Technologies, IReadOnlyList<CommandPreset> Presets);
 public sealed record IconCandidate(string Path, int Width, int Height, int Score);

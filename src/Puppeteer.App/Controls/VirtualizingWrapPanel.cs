@@ -33,6 +33,15 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel, IScrollInfo
     private Size _viewport;
     private Point _offset;
 
+    protected override void OnItemsChanged(object sender, ItemsChangedEventArgs args)
+    {
+        // A batched reset invalidates every old generator/container association.
+        if (args.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset)
+            RemoveInternalChildRange(0, InternalChildren.Count);
+        base.OnItemsChanged(sender, args);
+        InvalidateMeasure();
+    }
+
     public ScrollViewer? ScrollOwner { get; set; }
     public bool CanHorizontallyScroll { get; set; }
     public bool CanVerticallyScroll { get; set; }

@@ -1,17 +1,19 @@
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 
 namespace Puppeteer.App.Controls;
 
-/// <summary>Renders a markdown string for reading.
+/// <summary>Renders a markdown string for reading, GitHub README style.
 ///
 /// Deliberately small: it covers what the state docs, the index and a project README actually contain
-/// — headings, prose, lists, tables, fenced code, links and emphasis — and shows anything it does not
-/// recognise as the plain text it is, rather than dropping it. Nothing here writes.</summary>
+/// — headings, prose, lists, tables, fenced code, links, images and emphasis — and shows anything it
+/// does not recognise as the plain text it is, rather than dropping it. Nothing here writes.</summary>
 public sealed class MarkdownViewer : ContentControl
 {
     public static readonly DependencyProperty MarkdownProperty =
@@ -19,6 +21,13 @@ public sealed class MarkdownViewer : ContentControl
             new PropertyMetadata(null, (d, _) => ((MarkdownViewer)d).Rebuild()));
 
     public string? Markdown { get => (string?)GetValue(MarkdownProperty); set => SetValue(MarkdownProperty, value); }
+
+    /// <summary>The folder a relative image path resolves against — the directory of the file being read.</summary>
+    public static readonly DependencyProperty BasePathProperty =
+        DependencyProperty.Register(nameof(BasePath), typeof(string), typeof(MarkdownViewer),
+            new PropertyMetadata(null, (d, _) => ((MarkdownViewer)d).Rebuild()));
+
+    public string? BasePath { get => (string?)GetValue(BasePathProperty); set => SetValue(BasePathProperty, value); }
 
     private readonly FlowDocumentScrollViewer _viewer = new()
     {
@@ -123,6 +132,8 @@ public sealed class MarkdownViewer : ContentControl
                 continue;
             }
 
+            if (ImageOnly(trimmed) is { } image) { FlushParagraph(); blocks.Add(ImageBlock(image.Alt, image.Src)); continue; }
+
             if (BulletText(trimmed) is not null)
             {
                 FlushParagraph();
@@ -159,6 +170,61 @@ public sealed class MarkdownViewer : ContentControl
         if (dot is > 0 and < 4 && trimmed[..dot].All(char.IsDigit) && dot + 1 < trimmed.Length && trimmed[dot + 1] == ' ')
             return trimmed[(dot + 2)..].Trim();
         return null;
+    }
+
+    private static (string Alt, string Src)? ImageOnly(string trimmed)
+    {
+        if (!trimmed.StartsWith("![", StringComparison.Ordinal) || !trimmed.EndsWith(")", StringComparison.Ordinal)) return null;
+        var close = trimmed.IndexOf("](", StringComparison.Ordinal);
+        if (close < 0) return null;
+        return (trimmed[2..close], trimmed[(close + 2)..^1]);
+    }
+
+    private Block ImageBlock(string alt, string src)
+    {
+        if (LoadImage(src) is not { } bitmap)
+            return new Paragraph(new Run($"[image: {(alt.Length > 0 ? alt : src)}]"))
+            {
+                Foreground = Brush("FaintBrush", Brushes.Gray),
+                FontStyle = FontStyles.Italic,
+                Margin = new(0, 0, 0, 12),
+            };
+        var image = new Image
+        {
+            Source = bitmap,
+            Stretch = Stretch.Uniform,
+            StretchDirection = StretchDirection.DownOnly,
+            MaxWidth = 720,
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        return new BlockUIContainer(image) { Margin = new(0, 4, 0, 14) };
+    }
+
+    /// <summary>Loads a README image from an http(s) URL or a path relative to <see cref="BasePath"/>.
+    /// Anything that fails to resolve or decode is treated as absent, not fatal — a broken badge link
+    /// should not stop the rest of the doc from rendering.</summary>
+    private BitmapImage? LoadImage(string src)
+    {
+        try
+        {
+            Uri uri;
+            if (Uri.TryCreate(src, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https") uri = absolute;
+            else
+            {
+                if (string.IsNullOrEmpty(BasePath)) return null;
+                var full = Path.GetFullPath(Path.Combine(BasePath, src));
+                if (!File.Exists(full)) return null;
+                uri = new Uri(full);
+            }
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = uri;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch { return null; }
     }
 
     private static bool IsRule(string trimmed) =>
@@ -297,6 +363,13 @@ public sealed class MarkdownViewer : ContentControl
                 i = italicEnd;
                 continue;
             }
+            if (text[i] == '!' && i + 1 < text.Length && text[i + 1] == '[' && ImageAt(text, i + 1) is { } inlineImage)
+            {
+                Flush();
+                span.Inlines.Add(inlineImage.Inline);
+                i = inlineImage.End;
+                continue;
+            }
             if (text[i] == '[' && LinkAt(text, i) is { } link)
             {
                 Flush();
@@ -314,6 +387,21 @@ public sealed class MarkdownViewer : ContentControl
     {
         var at = text.IndexOf(marker, from, StringComparison.Ordinal);
         return at < 0 ? null : at;
+    }
+
+    /// <summary>A badge or inline icon written mid-sentence — sized small and baseline-aligned so a
+    /// row of shields.io badges reads as a row of text, not a column of images.</summary>
+    private (Inline Inline, int End)? ImageAt(string text, int start)
+    {
+        var close = text.IndexOf("](", start, StringComparison.Ordinal);
+        if (close < 0) return null;
+        var end = text.IndexOf(')', close);
+        if (end < 0) return null;
+        var alt = text[(start + 1)..close];
+        var src = text[(close + 2)..end];
+        if (LoadImage(src) is not { } bitmap) return (new Run(alt.Length > 0 ? alt : src) { FontStyle = FontStyles.Italic }, end);
+        var image = new Image { Source = bitmap, Stretch = Stretch.Uniform, MaxHeight = 20, VerticalAlignment = VerticalAlignment.Center };
+        return (new InlineUIContainer(image) { BaselineAlignment = BaselineAlignment.Center }, end);
     }
 
     private (Inline Inline, int End)? LinkAt(string text, int start)

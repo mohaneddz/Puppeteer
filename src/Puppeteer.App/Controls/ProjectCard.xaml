@@ -57,25 +57,18 @@
           <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
         <Grid Width="46" Height="46" VerticalAlignment="Top" ClipToBounds="True">
-          <Border CornerRadius="11" Background="{Binding Converter={StaticResource ProjectIconTint}}"
+          <Border CornerRadius="{Binding Converter={StaticResource ProjectIconShape}}" Background="{Binding Converter={StaticResource ProjectIconTint}}"
                   BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"/>
           <TextBlock Text="{Binding PrimaryTechnology, Converter={StaticResource TechMono}}"
                      Foreground="{Binding PrimaryTechnology, Converter={StaticResource TechBrush}}"
                      FontWeight="Bold" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"
                      Visibility="{Binding Converter={StaticResource IconFallbackVis}}"/>
+          <Rectangle RadiusX="{Binding Converter={StaticResource ProjectIconRadius}}" RadiusY="{Binding Converter={StaticResource ProjectIconRadius}}"
+                     Visibility="{Binding IconFill, Converter={StaticResource BoolVis}}">
+            <Rectangle.Fill><ImageBrush ImageSource="{Binding Converter={StaticResource ProjectIcon}}" Stretch="UniformToFill"/></Rectangle.Fill>
+          </Rectangle>
           <Image Source="{Binding Converter={StaticResource ProjectIcon}}" Width="27" Height="27" Stretch="Uniform"
-                 RenderOptions.BitmapScalingMode="HighQuality">
-            <Image.Style>
-              <Style TargetType="Image">
-                <Setter Property="Width" Value="27"/><Setter Property="Height" Value="27"/><Setter Property="Stretch" Value="Uniform"/>
-                <Style.Triggers><DataTrigger Binding="{Binding IconFill}" Value="True">
-                  <Setter Property="Width" Value="Auto"/><Setter Property="Height" Value="Auto"/>
-                  <Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="VerticalAlignment" Value="Stretch"/>
-                  <Setter Property="Stretch" Value="UniformToFill"/>
-                </DataTrigger></Style.Triggers>
-              </Style>
-            </Image.Style>
-          </Image>
+                 RenderOptions.BitmapScalingMode="HighQuality" Visibility="{Binding IconFill, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
         </Grid>
         <StackPanel Grid.Column="1" Margin="13,1,0,0" VerticalAlignment="Center">
           <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
@@ -83,6 +76,8 @@
                      TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">
+          <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="13" Height="13" Stroke="{StaticResource SuccessBrush}" Margin="0,0,7,0"
+                ToolTip="Git repository" Visibility="{Binding Git, Converter={StaticResource NullVis}}"/>
           <Path Data="{StaticResource IconStar}" Fill="{StaticResource AccentBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,6,0"
                 Visibility="{Binding Id, Converter={StaticResource Pinned}}"/>
           <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,1,0,0"
@@ -94,6 +89,9 @@
 
       <!-- Tech badges (capped so the fixed-height card never clips; full stack is in the inspector) -->
       <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="{Binding DataContext.CardGap, RelativeSource={RelativeSource AncestorType=Window}}">
+        <Border Style="{StaticResource TechnologyBadge}" Margin="0,0,6,0">
+          <TextBlock Text="{Binding Converter={StaticResource ProjectType}}" Style="{StaticResource TechnologyBadgeText}"/>
+        </Border>
         <ItemsControl ItemsSource="{Binding Technologies, Converter={StaticResource Take}, ConverterParameter=3}">
           <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
           <ItemsControl.ItemTemplate>

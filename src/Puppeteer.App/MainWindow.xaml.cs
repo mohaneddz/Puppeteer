@@ -28,6 +28,8 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = viewModel;
+        IsVisibleChanged += (_, _) => viewModel.SetUiActive(IsVisible && WindowState != WindowState.Minimized);
+        StateChanged += (_, _) => viewModel.SetUiActive(IsVisible && WindowState != WindowState.Minimized);
         _tray = tray;
         viewModel.PropertyChanged += Vm_PropertyChanged;
         ApplyTerminalLayout();
@@ -82,7 +84,42 @@ public partial class MainWindow : Window
     }
 
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+    [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, int flags);
     [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
+    [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
+    [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    // CenterScreen always drops the window on the primary monitor, so on a multi-monitor setup it can
+    // open behind whatever's on a screen you aren't looking at — "it's running but I can't see it".
+    // Centre it on the monitor the cursor is on instead, and pull it to the foreground. Win32 works in
+    // physical pixels across monitors of differing DPI, which the WPF Left/Top properties don't.
+    private void BringToActiveMonitor()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        if (GetCursorPos(out var cursor))
+        {
+            var monitor = MonitorFromPoint(cursor, 0x2 /* MONITOR_DEFAULTTONEAREST */);
+            var info = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
+            if (monitor != IntPtr.Zero && GetMonitorInfo(monitor, ref info))
+            {
+                var wasMaximized = WindowState == WindowState.Maximized;
+                if (wasMaximized) WindowState = WindowState.Normal;
+                if (GetWindowRect(hwnd, out var r))
+                {
+                    var work = info.rcWork;
+                    var x = work.Left + Math.Max(0, (work.Right - work.Left - (r.Right - r.Left)) / 2);
+                    var y = work.Top + Math.Max(0, (work.Bottom - work.Top - (r.Bottom - r.Top)) / 2);
+                    SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0, 0x0001 /* NOSIZE */ | 0x0004 /* NOZORDER */);
+                }
+                if (wasMaximized) WindowState = WindowState.Maximized;
+            }
+        }
+        Activate();
+        Topmost = true;
+        Topmost = false;
+    }
 
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int X, Y; }
@@ -98,6 +135,11 @@ public partial class MainWindow : Window
         if (double.TryParse(await Vm.GetPrefAsync("DetailsWidth"), out var dw) && dw > 0) { _detailsWidth = dw; DetailsColumn.Width = new GridLength(dw); }
         if (double.TryParse(await Vm.GetPrefAsync("TerminalHeight"), out var th) && th > 80) _terminalHeight = th;
         if (await Vm.GetPrefAsync("Maximized") == "1") WindowState = WindowState.Maximized;
+        // Do this last, and after the pending layout pass: setting Width/Height above makes WPF re-assert
+        // its cached CenterScreen position (the primary monitor), which would otherwise snap the window
+        // back off whichever screen the user is actually on. Skip under the offscreen capture harness.
+        if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is not { Length: > 0 } && WindowState != WindowState.Minimized)
+            await Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(BringToActiveMonitor));
     }
 
     // Written as one awaited batch rather than a handful of fire-and-forget writes: this runs as the
@@ -149,6 +191,13 @@ public partial class MainWindow : Window
         }
     }
 
+    private void FolderHide_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Button { DataContext: FolderNode folder } && Vm.HideFolderProjectsCommand.CanExecute(folder))
+            Vm.HideFolderProjectsCommand.Execute(folder);
+        e.Handled = true;
+    }
+
     // ---- Notification area ----
 
     /// <summary>Hides the window from the taskbar when it is minimized, if the user asked for that.
@@ -170,9 +219,7 @@ public partial class MainWindow : Window
     {
         Show();
         if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-        Activate();
-        Topmost = true;
-        Topmost = false;
+        BringToActiveMonitor();
     }
 
     private void ToggleTrayVisibility()
@@ -340,7 +387,6 @@ public partial class MainWindow : Window
         if (ctrl && TypingInTerminal && e.Key != Key.OemTilde) return;
         if (ctrl && e.Key == Key.K)
         {
-            Vm.CurrentPage = "Projects";
             SearchBox.Focus();
             SearchBox.SelectAll();
             e.Handled = true;
@@ -363,17 +409,35 @@ public partial class MainWindow : Window
         }
         else if (e.Key == Key.Escape)
         {
-            if (!string.IsNullOrEmpty(Vm.Search)) { Vm.Search = ""; e.Handled = true; }
+            if (Vm.FieldEditorOpen) { Vm.CloseFieldEditorCommand.Execute(null); e.Handled = true; }
+            else if (Vm.ReaderOpen) { Vm.CloseReaderCommand.Execute(null); e.Handled = true; }
+            else if (!string.IsNullOrEmpty(Vm.ActiveSearch)) { Vm.ActiveSearch = ""; e.Handled = true; }
             else if (Vm.TerminalOpen) { Vm.TerminalOpen = false; e.Handled = true; }
         }
     }
+
+    // Clicking the dimmed backdrop closes the reader, the way any other modal does. The card itself
+    // marks the click handled so it never bubbles up to the backdrop's handler above it.
+    private void ReaderOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm.CloseReaderCommand.CanExecute(null)) Vm.CloseReaderCommand.Execute(null);
+    }
+
+    private void ReaderModal_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
+    private void FieldEditorOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (Vm.CloseFieldEditorCommand.CanExecute(null)) Vm.CloseFieldEditorCommand.Execute(null);
+    }
+
+    private void FieldEditorModal_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
 
     private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (sender is not TextBox box || box.DataContext is not TerminalSessionViewModel session) return;
         if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control) && e.Key == Key.L)
         {
-            session.Output.Clear();
+            session.ClearOutput();
             e.Handled = true;
             return;
         }

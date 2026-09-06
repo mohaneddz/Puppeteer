@@ -31,7 +31,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
             CREATE TABLE IF NOT EXISTS TerminalPreset(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, Command TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS AppSetting(Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectPreference(ProjectId TEXT PRIMARY KEY, Path TEXT NOT NULL,
-                CustomName TEXT NULL, IconPath TEXT NULL, IconFill INTEGER NULL, Category TEXT NULL, UpdatedAt TEXT NOT NULL);
+                CustomName TEXT NULL, IconPath TEXT NULL, IconFill INTEGER NULL, Category TEXT NULL, IconShape TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectDocLink(ProjectId TEXT PRIMARY KEY, DocPath TEXT NOT NULL, Manual INTEGER NOT NULL DEFAULT 0, LinkedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectSnapshot(Id INTEGER PRIMARY KEY AUTOINCREMENT, ProjectId TEXT NOT NULL, CapturedAt TEXT NOT NULL,
                 Branch TEXT NULL, Head TEXT NULL, ModifiedFileCount INTEGER NOT NULL, Ahead INTEGER NOT NULL, Behind INTEGER NOT NULL,
@@ -44,6 +44,13 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         {
             var migrate = connection.CreateCommand();
             migrate.CommandText = "ALTER TABLE Project ADD COLUMN Category TEXT NULL";
+            await migrate.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException) { /* column already exists */ }
+        try
+        {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = "ALTER TABLE ProjectPreference ADD COLUMN IconShape TEXT NULL";
             await migrate.ExecuteNonQueryAsync(cancellationToken);
         }
         catch (SqliteException) { /* column already exists */ }
@@ -98,7 +105,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         command.CommandText = """
             SELECT p.Id, COALESCE(f.CustomName, p.Name), p.Path, p.RootId, p.PrimaryTechnology, p.TechnologiesJson, p.HierarchyJson, p.PresetsJson,
                    p.LastOpenedAt, p.CreatedAt, p.UpdatedAt, COALESCE(f.IconPath, p.CustomIconPath), COALESCE(f.Category, p.Category),
-                   COALESCE(f.IconFill, p.IconFill), f.CustomName
+                   COALESCE(f.IconFill, p.IconFill), f.CustomName, COALESCE(f.IconShape, 'Rounded')
             FROM Project p LEFT JOIN ProjectPreference f ON f.ProjectId = p.Id
             ORDER BY COALESCE(f.CustomName, p.Name)
             """;
@@ -109,7 +116,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
                 JsonSerializer.Deserialize<CommandPreset[]>(reader.GetString(7)) ?? [], reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
                 DateTimeOffset.Parse(reader.GetString(9)), DateTimeOffset.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetString(11),
                 Category: reader.IsDBNull(12) ? null : reader.GetString(12), IconFill: reader.GetInt64(13) != 0,
-                CustomName: reader.IsDBNull(14) ? null : reader.GetString(14)));
+                CustomName: reader.IsDBNull(14) ? null : reader.GetString(14), IconShape: reader.IsDBNull(15) ? "Rounded" : reader.GetString(15)));
         return result;
     }
 
@@ -193,6 +200,12 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         command.Parameters.AddWithValue("$fill", fill ? 1 : 0); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
         await RememberAsync(connection, projectId, "IconFill", fill ? 1 : 0, cancellationToken);
+    }
+
+    public async Task SetProjectIconShapeAsync(Guid projectId, string shape, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        await RememberAsync(lease.Connection, projectId, "IconShape", shape, cancellationToken);
     }
 
     public async Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default)

@@ -25,7 +25,9 @@ public sealed class SignatureProjectDetector : IProjectDetector
         var tauri = File.Exists(Path.Combine(directory, "src-tauri", "tauri.conf.json"));
         Detect(tauri, "Tauri", new("Dev", "pnpm tauri dev"), new("Build", "pnpm tauri build"));
         if (tauri) Add("Rust");
-        Detect(files.Any(x => x!.EndsWith(".sln", StringComparison.OrdinalIgnoreCase) || x.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)), ".NET",
+        Detect(files.Any(x => x!.EndsWith(".sln", StringComparison.OrdinalIgnoreCase)
+            || x.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase)
+            || x.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)), ".NET",
             new("Run", "dotnet run"), new("Build", "dotnet build"), new("Test", "dotnet test"));
         if (files.Any(x => x!.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))) Add("C#");
         if (files.Any(x => x!.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)) && Directory.Exists(Path.Combine(directory, "Views"))) Add("WPF");

@@ -10,6 +10,7 @@ public static class ServiceCollectionExtensions
         .AddSingleton<IGitMetadataService, GitMetadataService>()
         .AddSingleton<IProjectScanner, ProjectScanner>()
         .AddSingleton<IProjectRepository>(_ => new SqliteProjectRepository(databasePath))
+        .AddSingleton<IProjectBackupService>(_ => new ProjectBackupService(databasePath))
         .AddSingleton<IIconDiscoveryService, IconDiscoveryService>()
         .AddSingleton<IProjectIconProvider, ProjectIconProvider>()
         .AddSingleton<IProjectLauncher, ProjectLauncher>()
@@ -17,6 +18,6 @@ public static class ServiceCollectionExtensions
         .AddSingleton<IFileSystemWatchService, FileSystemWatchService>()
         .AddSingleton<IProjectDocVault, ProjectDocVault>()
         .AddSingleton<IProjectClassifier>(_ => new GroqProjectClassifier(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) }))
+        .AddSingleton<IDocFieldGenerator>(_ => new GroqDocFieldGenerator(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) }))
         .AddSingleton<ProjectSearchService>();
 }
-        .AddSingleton<IProjectBackupService>(_ => new ProjectBackupService(databasePath))

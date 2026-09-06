@@ -12,6 +12,7 @@ public sealed class ProjectIconProvider : IProjectIconProvider
 
 public sealed class IconDiscoveryService : IIconDiscoveryService
 {
+    private const int MaxCandidates = 24;
     private static readonly HashSet<string> Extensions = new(StringComparer.OrdinalIgnoreCase) { ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".webp", ".avif", ".ico", ".svg" };
     private static readonly HashSet<string> IgnoredFolders = new(StringComparer.OrdinalIgnoreCase) { ".git", "node_modules", "bin", "obj", ".next", ".nuxt", "coverage", "vendor" };
     public Task<IReadOnlyList<IconCandidate>> FindAsync(string projectPath, CancellationToken cancellationToken = default) => Task.Run(() =>
@@ -33,7 +34,9 @@ public sealed class IconDiscoveryService : IIconDiscoveryService
         }
         catch (UnauthorizedAccessException) { }
         catch (IOException) { }
-        return (IReadOnlyList<IconCandidate>)candidates.Values.OrderByDescending(x => x.Score).ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase).Take(60).ToArray();
+        // Candidates are rendered as WPF images. Keeping this list focused avoids synchronously
+        // decoding dozens of large screenshots and mockups when a project contains design assets.
+        return (IReadOnlyList<IconCandidate>)candidates.Values.OrderByDescending(x => x.Score).ThenBy(x => x.Path, StringComparer.OrdinalIgnoreCase).Take(MaxCandidates).ToArray();
     }, cancellationToken);
 
     private static IEnumerable<string> EnumerateImageFiles(string folder, CancellationToken cancellationToken)

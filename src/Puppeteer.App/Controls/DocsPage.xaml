@@ -6,7 +6,6 @@
   <UserControl.Resources>
     <conv:DocStatusBrushConverter x:Key="DocStatusBrush"/>
     <conv:DriftVisibilityConverter x:Key="DriftVis"/>
-    <conv:EqualsMultiConverter x:Key="EqualsMulti"/>
     <!-- The window's BareList lives in Window.Resources, which a separately parsed UserControl
          cannot reach with StaticResource; the list needs its own. -->
     <Style x:Key="PlainList" TargetType="ListBox">
@@ -34,7 +33,7 @@
 
   <Grid>
     <!-- ===== BROWSE ===== -->
-    <Grid Margin="26,20,26,22" Visibility="{Binding ReaderOpen, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}">
+    <Grid Margin="26,20,26,22">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
         <RowDefinition Height="Auto"/>
@@ -89,15 +88,6 @@
           <ComboBox Width="160" ItemsSource="{Binding DocFilters}" SelectedItem="{Binding DocFilter}" ToolTip="Filter by state"/>
           <ComboBox Width="160" Margin="9,0,0,0" ItemsSource="{Binding DocSections}" SelectedItem="{Binding DocSection}"
                     ToolTip="Filter by the index's own sections" Visibility="{Binding HasIndex, Converter={StaticResource BoolVis}}"/>
-          <Border Margin="9,0,0,0" Width="240" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}"
-                  BorderThickness="1" CornerRadius="8" Padding="10,0">
-            <Grid>
-              <TextBlock Text="Filter docs…" Style="{StaticResource MutedText}" VerticalAlignment="Center" IsHitTestVisible="False"
-                         Visibility="{Binding DocSearch, Converter={StaticResource EmptyVis}, ConverterParameter=Inverse}"/>
-              <TextBox Text="{Binding DocSearch, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0"
-                       Padding="0,7" VerticalContentAlignment="Center"/>
-            </Grid>
-          </Border>
         </StackPanel>
         <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="{StaticResource ChipBrush}"
                 BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="3">
@@ -212,13 +202,13 @@
               <DataTrigger Binding="{Binding DocView}" Value="Grid">
                 <Setter Property="ItemsPanel">
                   <Setter.Value>
-                    <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                    <ItemsPanelTemplate><controls:VirtualizingWrapPanel ItemWidth="300" ItemHeight="224"/></ItemsPanelTemplate>
                   </Setter.Value>
                 </Setter>
                 <Setter Property="ItemTemplate">
                   <Setter.Value>
                     <DataTemplate>
-                      <controls:DocCard Width="330" Height="224"/>
+                      <controls:DocCard/>
                     </DataTemplate>
                   </Setter.Value>
                 </Setter>
@@ -236,71 +226,6 @@
         <TextBlock Text="No project matches this filter." Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,6,0,0"
                    Visibility="{Binding HasVault, Converter={StaticResource BoolVis}}"/>
       </StackPanel>
-    </Grid>
-
-    <!-- ===== READER ===== -->
-    <Grid Margin="26,20,26,22" Visibility="{Binding ReaderOpen, Converter={StaticResource BoolVis}}">
-      <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="Auto"/>
-        <RowDefinition Height="*"/>
-      </Grid.RowDefinitions>
-
-      <Grid Margin="0,0,0,14">
-        <StackPanel Orientation="Horizontal">
-          <Button Command="{Binding CloseReaderCommand}" Style="{StaticResource IconButton}" Width="30" Height="30" ToolTip="Back to the list">
-            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconChevronLeft}" Width="14" Height="14"/>
-          </Button>
-          <TextBlock Text="{Binding ReaderTitle}" Style="{StaticResource PageTitle}" Margin="12,0,0,0"/>
-        </StackPanel>
-        <Button HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenReaderFileCommand}" Padding="12,8"
-                ToolTip="Open this file in your editor">
-          <StackPanel Orientation="Horizontal">
-            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCode}" Width="13" Height="13"/>
-            <TextBlock Text="Open in editor" Margin="8,0,0,0" VerticalAlignment="Center"/>
-          </StackPanel>
-        </Button>
-      </Grid>
-
-      <!-- Tabs -->
-      <StackPanel Grid.Row="1" Margin="0,0,0,14">
-        <ItemsControl ItemsSource="{Binding ReaderTabs}">
-          <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Button Margin="0,0,7,0" Padding="14,7"
-                      Command="{Binding DataContext.SetReaderTabCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                      CommandParameter="{Binding}">
-                <TextBlock Text="{Binding}" FontSize="12.5">
-                  <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                      <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
-                      <Style.Triggers>
-                        <DataTrigger Value="True">
-                          <DataTrigger.Binding>
-                            <MultiBinding Converter="{StaticResource EqualsMulti}">
-                              <Binding/>
-                              <Binding Path="DataContext.ReaderTab" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
-                            </MultiBinding>
-                          </DataTrigger.Binding>
-                          <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
-                          <Setter Property="FontWeight" Value="SemiBold"/>
-                        </DataTrigger>
-                      </Style.Triggers>
-                    </Style>
-                  </TextBlock.Style>
-                </TextBlock>
-              </Button>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock Text="{Binding ReaderSubtitle}" Style="{StaticResource MutedText}" FontSize="11" FontFamily="{StaticResource MonoFont}"
-                   Margin="2,10,0,0" TextTrimming="CharacterEllipsis"/>
-      </StackPanel>
-
-      <Border Grid.Row="2" Style="{StaticResource PanelCard}" Padding="24,20,10,10">
-        <controls:MarkdownViewer Markdown="{Binding ReaderText}"/>
-      </Border>
     </Grid>
   </Grid>
 </UserControl>

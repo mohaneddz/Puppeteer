@@ -19,7 +19,11 @@
       <Setter Property="FontSize" Value="11.5"/>
       <Setter Property="FontWeight" Value="Medium"/>
       <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
-      <Setter Property="Margin" Value="2,0,0,5"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+    </Style>
+    <Style x:Key="DocFieldToolButton" TargetType="Button" BasedOn="{StaticResource IconButton}">
+      <Setter Property="Width" Value="22"/>
+      <Setter Property="Height" Value="22"/>
     </Style>
   </UserControl.Resources>
 
@@ -67,35 +71,95 @@
       <TextBlock Text="Status" Style="{StaticResource DocEditorLabel}"/>
       <ComboBox ItemsSource="{Binding DocStatusOptions}" SelectedItem="{Binding DocStatusValue}" Margin="0,0,0,14"/>
 
-      <TextBlock Text="Summary" Style="{StaticResource DocEditorLabel}"/>
+      <Grid Margin="0,0,0,5">
+        <TextBlock Text="Summary" Style="{StaticResource DocEditorLabel}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource DocFieldToolButton}" ToolTip="Open in a larger editor"
+                  Command="{Binding OpenFieldEditorCommand}" CommandParameter="Summary">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconExpand}" Width="11" Height="11"/>
+          </Button>
+          <Button Style="{StaticResource DocFieldToolButton}" Margin="4,0,0,0" ToolTip="Generate from the project's code with AI"
+                  Command="{Binding GenerateDocFieldCommand}" CommandParameter="Summary">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="11" Height="11"/>
+          </Button>
+        </StackPanel>
+      </Grid>
       <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocSummary, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Text="What works" Style="{StaticResource DocEditorLabel}"/>
+      <Grid Margin="0,0,0,5">
+        <TextBlock Text="What works" Style="{StaticResource DocEditorLabel}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource DocFieldToolButton}" ToolTip="Open in a larger editor"
+                  Command="{Binding OpenFieldEditorCommand}" CommandParameter="What works">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconExpand}" Width="11" Height="11"/>
+          </Button>
+          <Button Style="{StaticResource DocFieldToolButton}" Margin="4,0,0,0" ToolTip="Generate from the project's code with AI"
+                  Command="{Binding GenerateDocFieldCommand}" CommandParameter="What works">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="11" Height="11"/>
+          </Button>
+        </StackPanel>
+      </Grid>
       <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocWorks, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Text="What's broken / incomplete" Style="{StaticResource DocEditorLabel}"/>
+      <Grid Margin="0,0,0,5">
+        <TextBlock Text="What's broken / incomplete" Style="{StaticResource DocEditorLabel}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource DocFieldToolButton}" ToolTip="Open in a larger editor"
+                  Command="{Binding OpenFieldEditorCommand}" CommandParameter="What's broken / incomplete">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconExpand}" Width="11" Height="11"/>
+          </Button>
+          <Button Style="{StaticResource DocFieldToolButton}" Margin="4,0,0,0" ToolTip="Generate from the project's code with AI"
+                  Command="{Binding GenerateDocFieldCommand}" CommandParameter="What's broken / incomplete">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="11" Height="11"/>
+          </Button>
+        </StackPanel>
+      </Grid>
       <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocBroken, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Text="Next steps" Style="{StaticResource DocEditorLabel}"/>
+      <Grid Margin="0,0,0,5">
+        <TextBlock Text="Next steps" Style="{StaticResource DocEditorLabel}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource DocFieldToolButton}" ToolTip="Open in a larger editor"
+                  Command="{Binding OpenFieldEditorCommand}" CommandParameter="Next steps">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconExpand}" Width="11" Height="11"/>
+          </Button>
+          <Button Style="{StaticResource DocFieldToolButton}" Margin="4,0,0,0" ToolTip="Generate from the project's code with AI"
+                  Command="{Binding GenerateDocFieldCommand}" CommandParameter="Next steps">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="11" Height="11"/>
+          </Button>
+        </StackPanel>
+      </Grid>
       <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocNext, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <TextBlock Text="Notes" Style="{StaticResource DocEditorLabel}"/>
+      <Grid Margin="0,0,0,5">
+        <TextBlock Text="Notes" Style="{StaticResource DocEditorLabel}"/>
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+          <Button Style="{StaticResource DocFieldToolButton}" ToolTip="Open in a larger editor"
+                  Command="{Binding OpenFieldEditorCommand}" CommandParameter="Notes">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconExpand}" Width="11" Height="11"/>
+          </Button>
+          <Button Style="{StaticResource DocFieldToolButton}" Margin="4,0,0,0" ToolTip="Generate from the project's code with AI"
+                  Command="{Binding GenerateDocFieldCommand}" CommandParameter="Notes">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="11" Height="11"/>
+          </Button>
+        </StackPanel>
+      </Grid>
       <TextBox Style="{StaticResource DocEditorBox}" Text="{Binding DocNotes, UpdateSourceTrigger=PropertyChanged}"/>
 
-      <Grid>
+      <Grid Margin="0,4,0,0">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/><ColumnDefinition Width="8"/><ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
-        <Button Style="{StaticResource AccentOutlineButton}" Command="{Binding SaveDocCommand}" Padding="12,10">
+        <Button Style="{StaticResource AccentOutlineButton}" Command="{Binding SaveDocCommand}" Padding="12,10" HorizontalContentAlignment="Center">
           <TextBlock Text="Save doc" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" FontSize="12.5"/>
         </Button>
-        <Button Grid.Column="2" Command="{Binding RevertDocCommand}" Padding="12,10" ToolTip="Throw away unsaved edits">
+        <Button Grid.Column="2" Command="{Binding RevertDocCommand}" Padding="12,10" HorizontalContentAlignment="Center" ToolTip="Throw away unsaved edits">
           <TextBlock Text="Revert" FontSize="12.5"/>
         </Button>
       </Grid>
-      <Button Command="{Binding UnlinkDocCommand}" Margin="0,10,0,0" Padding="10,8" HorizontalAlignment="Left"
+      <Button Command="{Binding UnlinkDocCommand}" Margin="0,8,0,0" Padding="12,10" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
               ToolTip="Detach this doc. The file is not deleted.">
-        <TextBlock Text="Unlink doc" FontSize="12" Foreground="{StaticResource MutedTextBrush}"/>
+        <TextBlock Text="Unlink doc" FontSize="12.5" Foreground="{StaticResource MutedTextBrush}"/>
       </Button>
     </StackPanel>
   </StackPanel>

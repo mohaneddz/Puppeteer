@@ -5,15 +5,39 @@ namespace Puppeteer.App.ViewModels;
 
 /// <summary>A node in the sidebar folder tree. Selecting one filters the project grid to everything
 /// beneath its path.</summary>
-public sealed class FolderNode(string name, string path, int depth)
+public sealed class FolderNode(string name, string path, int depth) : ObservableObject
 {
     public string Name { get; } = name;
     public string Path { get; } = path;
     public int Depth { get; } = depth;
     public int ProjectCount { get; set; }
+    private bool _isHidden;
+    /// <summary>True when every project beneath this node has been hidden from the library.</summary>
+    public bool IsHidden
+    {
+        get => _isHidden;
+        set
+        {
+            if (!Set(ref _isHidden, value)) return;
+            Raise(nameof(RightClickToolTip));
+        }
+    }
+    public string RightClickToolTip => IsHidden
+        ? "Right-click to show this folder's projects"
+        : "Right-click to hide this folder's projects";
     /// <summary>Bound two-way to the TreeViewItem so expanding a folder sticks. Roots start open —
     /// a tree that shows one collapsed row per root tells the user nothing about their projects.</summary>
-    public bool IsExpanded { get; set; }
+    private bool _isExpanded;
+    public bool IsExpanded
+    {
+        get => _isExpanded;
+        set
+        {
+            if (!Set(ref _isExpanded, value)) return;
+            ExpansionChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+    public event EventHandler? ExpansionChanged;
     public ObservableCollection<FolderNode> Children { get; } = [];
 
     public static IReadOnlyList<FolderNode> Build(IEnumerable<RootFolder> roots, IReadOnlyList<Project> projects)

@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:Puppeteer.App.Controls"
         xmlns:vm="clr-namespace:Puppeteer.App.ViewModels"
+        xmlns:conv="clr-namespace:Puppeteer.App.Converters"
         Title="Puppeteer" Width="1600" Height="900" MinWidth="1040" MinHeight="640"
         WindowStartupLocation="CenterScreen" Background="{StaticResource WindowBrush}" Foreground="{StaticResource TextBrush}"
         Icon="Assets/icon.png" WindowStyle="None" ResizeMode="CanResize" TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
@@ -11,6 +12,7 @@
     <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"/>
   </WindowChrome.WindowChrome>
   <Window.Resources>
+    <conv:EqualsMultiConverter x:Key="EqualsMulti"/>
     <Style x:Key="BareList" TargetType="ListBox">
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="BorderThickness" Value="0"/>
@@ -200,9 +202,9 @@
               </Grid.ColumnDefinitions>
               <Path Grid.Column="0" Style="{StaticResource IconPath}" Data="{StaticResource IconSearch}" Width="15" Height="15" Stroke="{StaticResource MutedTextBrush}"/>
               <Grid Grid.Column="1" Margin="10,0,0,0">
-                <TextBlock Text="Search projects..." Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" FontSize="13"
-                           Visibility="{Binding Search, Converter={StaticResource EmptyVis}, ConverterParameter=Inverse}" IsHitTestVisible="False"/>
-                <TextBox x:Name="SearchBox" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" Padding="0" VerticalContentAlignment="Center"/>
+                <TextBlock Text="{Binding SearchPlaceholder}" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center" FontSize="13"
+                           Visibility="{Binding ActiveSearch, Converter={StaticResource EmptyVis}, ConverterParameter=Inverse}" IsHitTestVisible="False"/>
+                <TextBox x:Name="SearchBox" Text="{Binding ActiveSearch, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" BorderThickness="0" Padding="0" VerticalContentAlignment="Center"/>
               </Grid>
               <Border Grid.Column="2" Background="{StaticResource ElevatedBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="5" Padding="6,2" VerticalAlignment="Center">
                 <TextBlock Text="Ctrl K" FontSize="11" Foreground="{StaticResource MutedTextBrush}"/>
@@ -289,9 +291,26 @@
               </Grid.RowDefinitions>
               <Grid Margin="5,0,5,6">
                 <TextBlock Text="FOLDERS" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
-                <Button HorizontalAlignment="Right" Style="{StaticResource CardLinkButton}" Content="Clear" FontSize="11"
-                        Command="{Binding ClearFolderCommand}"
-                        Visibility="{Binding FolderFilterActive, Converter={StaticResource BoolVis}}"/>
+                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" Padding="0" Margin="0,0,4,0"
+                          ToolTip="{Binding FolderExpandToggleToolTip}" Command="{Binding ToggleFolderExpansionCommand}">
+                    <Path Width="13" Height="13" Stroke="{StaticResource MutedTextBrush}">
+                      <Path.Style>
+                        <Style TargetType="Path" BasedOn="{StaticResource IconPath}">
+                          <Setter Property="Data" Value="{StaticResource IconChevronUp}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding AreAllFoldersCollapsed}" Value="True">
+                              <Setter Property="Data" Value="{StaticResource IconChevronDown}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Path.Style>
+                    </Path>
+                  </Button>
+                  <Button Style="{StaticResource CardLinkButton}" Content="Clear" FontSize="11"
+                          Command="{Binding ClearFolderCommand}"
+                          Visibility="{Binding FolderFilterActive, Converter={StaticResource BoolVis}}"/>
+                </StackPanel>
               </Grid>
               <TreeView Grid.Row="1" ItemsSource="{Binding FolderTree}" Background="Transparent" BorderThickness="0"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -304,9 +323,19 @@
                 </TreeView.ItemContainerStyle>
                 <TreeView.ItemTemplate>
                   <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                    <Button Style="{StaticResource CardLinkButton}" HorizontalContentAlignment="Left" Padding="3,3"
+                    <Button HorizontalContentAlignment="Left" Padding="3,3"
                             Command="{Binding DataContext.SelectFolderCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
-                            CommandParameter="{Binding}" ToolTip="{Binding Path}">
+                            CommandParameter="{Binding}" ToolTip="{Binding RightClickToolTip}"
+                            PreviewMouseRightButtonUp="FolderHide_RightClick">
+                      <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource CardLinkButton}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsHidden}" Value="True">
+                              <Setter Property="Opacity" Value="0.38"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Button.Style>
                       <Button.Background>
                         <MultiBinding Converter="{StaticResource ActiveFolder}">
                           <Binding Path="Path"/>
@@ -659,10 +688,30 @@
                 <Border Style="{StaticResource SettingRow}">
                   <StackPanel>
                     <TextBlock Text="Open in IDE command" Style="{StaticResource SettingLabel}"/>
-                    <TextBlock Text="The editor to launch with the project folder — code, rider, subl. Leave blank to let Windows open the solution or folder as it normally would."
+                    <TextBlock Text="The editor to launch with the project folder — code, rider, subl. Leave blank to open the repository in VS Code."
                                Style="{StaticResource SettingHint}"/>
                     <TextBox Text="{Binding IdeCommand, UpdateSourceTrigger=LostFocus}" Margin="0,10,0,0" FontFamily="{StaticResource MonoFont}"/>
                   </StackPanel>
+                </Border>
+
+                <TextBlock Text="Backup &amp; restore" Style="{StaticResource SectionTitle}" Margin="0,26,0,10"/>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Library backup" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Save all roots, project details, custom names and icons, categories, links, history and settings in one portable backup. Project files are not copied." Style="{StaticResource SettingHint}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Create backup…" Command="{Binding CreateBackupCommand}"/>
+                  </Grid>
+                </Border>
+                <Border Style="{StaticResource SettingRow}">
+                  <Grid>
+                    <StackPanel Margin="0,0,20,0">
+                      <TextBlock Text="Restore a backup" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Replaces this device's saved Puppeteer library data. Your project folders and files stay exactly as they are." Style="{StaticResource SettingHint}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Restore backup…" Command="{Binding RestoreBackupCommand}"/>
+                  </Grid>
                 </Border>
 
                 <TextBlock Text="AI categorization (Groq)" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
@@ -914,6 +963,154 @@
           </Button>
         </Grid>
       </Border>
+
+      <!-- ============ DOC READER MODAL ============ -->
+      <Grid Grid.RowSpan="3" Visibility="{Binding ReaderOpen, Converter={StaticResource BoolVis}}">
+        <Border Background="#B3000000" MouseLeftButtonDown="ReaderOverlay_MouseLeftButtonDown">
+          <Border MaxWidth="880" MaxHeight="760" Margin="60,40" Padding="24,20,10,20"
+                  Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" CornerRadius="14"
+                  MouseLeftButtonDown="ReaderModal_MouseLeftButtonDown">
+            <Border.Effect>
+              <DropShadowEffect BlurRadius="36" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+            </Border.Effect>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+
+              <Grid Margin="0,0,14,14">
+                <TextBlock Text="{Binding ReaderTitle}" Style="{StaticResource PageTitle}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <Button Command="{Binding OpenReaderFileCommand}" Padding="12,8" Margin="0,0,8,0" ToolTip="Open this file in your editor">
+                    <StackPanel Orientation="Horizontal">
+                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCode}" Width="13" Height="13"/>
+                      <TextBlock Text="Open in editor" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="32" Height="32" Command="{Binding CloseReaderCommand}" ToolTip="Close">
+                    <Path Data="{StaticResource IconClose}" Width="12" Height="12" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                  </Button>
+                </StackPanel>
+              </Grid>
+
+              <!-- Tabs -->
+              <StackPanel Grid.Row="1" Margin="0,0,14,14">
+                <ItemsControl ItemsSource="{Binding ReaderTabs}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Margin="0,0,7,0" Padding="14,7"
+                              Command="{Binding DataContext.SetReaderTabCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}">
+                        <TextBlock Text="{Binding}" FontSize="12.5">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Value="True">
+                                  <DataTrigger.Binding>
+                                    <MultiBinding Converter="{StaticResource EqualsMulti}">
+                                      <Binding/>
+                                      <Binding Path="DataContext.ReaderTab" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                    </MultiBinding>
+                                  </DataTrigger.Binding>
+                                  <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                  <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding ReaderSubtitle}" Style="{StaticResource MutedText}" FontSize="11" FontFamily="{StaticResource MonoFont}"
+                           Margin="2,10,0,0" TextTrimming="CharacterEllipsis"/>
+              </StackPanel>
+
+              <controls:MarkdownViewer Grid.Row="2" Markdown="{Binding ReaderText}" BasePath="{Binding ReaderBasePath}"/>
+            </Grid>
+          </Border>
+        </Border>
+      </Grid>
+
+      <!-- ============ DOC FIELD EDITOR MODAL ============ -->
+      <Grid Grid.RowSpan="3" Visibility="{Binding FieldEditorOpen, Converter={StaticResource BoolVis}}">
+        <Border Background="#B3000000" MouseLeftButtonDown="FieldEditorOverlay_MouseLeftButtonDown">
+          <Border MaxWidth="760" MaxHeight="640" Margin="80,60" Padding="24,20,10,20"
+                  Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" CornerRadius="14"
+                  MouseLeftButtonDown="FieldEditorModal_MouseLeftButtonDown">
+            <Border.Effect>
+              <DropShadowEffect BlurRadius="36" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+            </Border.Effect>
+            <Grid>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+
+              <Grid Margin="0,0,14,14">
+                <TextBlock Text="{Binding FieldEditorLabel}" Style="{StaticResource PageTitle}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                  <Button Style="{StaticResource IconButton}" Width="32" Height="32" Margin="0,0,4,0"
+                          Command="{Binding GenerateDocFieldCommand}" CommandParameter="{Binding FieldEditorLabel}"
+                          ToolTip="Generate from the project's code with AI">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconStar}" Width="14" Height="14"/>
+                  </Button>
+                  <Button Style="{StaticResource IconButton}" Width="32" Height="32" Command="{Binding CloseFieldEditorCommand}" ToolTip="Close">
+                    <Path Data="{StaticResource IconClose}" Width="12" Height="12" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                  </Button>
+                </StackPanel>
+              </Grid>
+
+              <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,14,14">
+                <ItemsControl ItemsSource="{x:Static vm:MainViewModel.FieldEditorModes}">
+                  <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Button Margin="0,0,7,0" Padding="14,7"
+                              Command="{Binding DataContext.SetFieldEditorModeCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                              CommandParameter="{Binding}">
+                        <TextBlock Text="{Binding}" FontSize="12.5">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+                              <Style.Triggers>
+                                <DataTrigger Value="True">
+                                  <DataTrigger.Binding>
+                                    <MultiBinding Converter="{StaticResource EqualsMulti}">
+                                      <Binding/>
+                                      <Binding Path="DataContext.FieldEditorMode" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                    </MultiBinding>
+                                  </DataTrigger.Binding>
+                                  <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                  <Setter Property="FontWeight" Value="SemiBold"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </Button>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <Grid Grid.Row="2">
+                <TextBox Text="{Binding FieldEditorText, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" Padding="0,0,10,0" FontSize="13"
+                         Visibility="{Binding FieldEditorMode, Converter={StaticResource PageVis}, ConverterParameter=Edit}"/>
+                <controls:MarkdownViewer Markdown="{Binding FieldEditorText}"
+                                          Visibility="{Binding FieldEditorMode, Converter={StaticResource PageVis}, ConverterParameter=Preview}"/>
+              </Grid>
+            </Grid>
+          </Border>
+        </Border>
+      </Grid>
     </Grid>
   </Border>
 </Window>

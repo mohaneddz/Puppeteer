@@ -21,6 +21,7 @@ public interface IProjectRepository
     Task DeleteProjectsAsync(IEnumerable<Guid> projectIds, CancellationToken cancellationToken = default);
     Task SetProjectIconAsync(Guid projectId, string? iconPath, CancellationToken cancellationToken = default);
     Task SetProjectIconFillAsync(Guid projectId, bool fill, CancellationToken cancellationToken = default);
+    Task SetProjectIconShapeAsync(Guid projectId, string shape, CancellationToken cancellationToken = default);
     Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default);
     Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default);
     Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default);
@@ -42,6 +43,17 @@ public interface IProjectRepository
     Task<IReadOnlyList<ProjectStateSnapshot>> GetSnapshotsAsync(Guid projectId, int limit = 40, CancellationToken cancellationToken = default);
     Task<IReadOnlyDictionary<Guid, ProjectStateSnapshot>> GetLatestSnapshotsAsync(CancellationToken cancellationToken = default);
 }
+
+/// <summary>Creates and restores a portable copy of Puppeteer's complete local library state.
+/// Backups contain the database only: they remember projects, roots, customizations, links and
+/// preferences, but never copy or overwrite the project folders themselves.</summary>
+public interface IProjectBackupService
+{
+    Task<BackupResult> CreateAsync(string backupPath, CancellationToken cancellationToken = default);
+    Task<BackupResult> RestoreAsync(string backupPath, CancellationToken cancellationToken = default);
+}
+
+public sealed record BackupResult(int RootCount, int ProjectCount);
 
 /// <summary>Reads and writes the folder of markdown state docs.
 ///
@@ -78,6 +90,13 @@ public interface IProjectClassifier
 public interface IIconDiscoveryService
 {
     Task<IReadOnlyList<IconCandidate>> FindAsync(string projectPath, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Writes one section of a project's state doc from the project's own README and file layout.
+/// Implementations may call an LLM; a null result means "could not generate".</summary>
+public interface IDocFieldGenerator
+{
+    Task<string?> GenerateAsync(string section, string projectName, string projectPath, string apiKey, CancellationToken cancellationToken = default);
 }
 
 public interface IProjectIconProvider
@@ -134,14 +153,3 @@ public interface IFileSystemWatchService : IDisposable
     void Watch(RootFolder root);
     void Stop(Guid rootId);
 }
-/// <summary>Creates and restores a portable copy of Puppeteer's complete local library state.
-/// Backups contain the database only: they remember projects, roots, customizations, links and
-/// preferences, but never copy or overwrite the project folders themselves.</summary>
-public interface IProjectBackupService
-{
-    Task<BackupResult> CreateAsync(string backupPath, CancellationToken cancellationToken = default);
-    Task<BackupResult> RestoreAsync(string backupPath, CancellationToken cancellationToken = default);
-}
-
-public sealed record BackupResult(int RootCount, int ProjectCount);
-

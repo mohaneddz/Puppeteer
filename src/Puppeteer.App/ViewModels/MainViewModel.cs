@@ -7,19 +7,22 @@ using Puppeteer.Core;
 namespace Puppeteer.App.ViewModels;
 public sealed partial class MainViewModel:ObservableObject
 {
- private readonly IProjectRepository _repository; private readonly IProjectScanner _scanner; private readonly ProjectSearchService _searchService; private readonly ITerminalService _terminalService; private readonly IProjectLauncher _launcher; private readonly IIconDiscoveryService _icons; private readonly IFilePicker _picker; private readonly IProjectClassifier _classifier; private readonly AppConfig _config; private readonly IGitMetadataService _git; private readonly IStartupService _startup; private readonly object _writeGate=new(); private Task _pendingWrites=Task.CompletedTask;
+ private readonly IProjectRepository _repository; private readonly IProjectBackupService _backup; private readonly IProjectScanner _scanner; private readonly ProjectSearchService _searchService; private readonly ITerminalService _terminalService; private readonly IProjectLauncher _launcher; private readonly IIconDiscoveryService _icons; private readonly IFilePicker _picker; private readonly IProjectClassifier _classifier; private readonly IDocFieldGenerator _fieldGenerator; private readonly AppConfig _config; private readonly IGitMetadataService _git; private readonly IStartupService _startup; private readonly object _writeGate=new(); private Task _pendingWrites=Task.CompletedTask;
  private readonly List<Project> _allProjects=[]; private readonly HashSet<Guid> _hiddenProjects=[]; private readonly HashSet<Guid> _archivedProjects=[]; private string _search=""; private string _selectedType="All"; private string _selectedTechnology="All"; private string _selectedCategory="All"; private string _selectedSpecial="All"; private string _currentPage="Projects"; private Project? _selectedProject; private TerminalSessionViewModel? _selectedSession; private bool _terminalOpen; private bool _isBusy; private string _status="Ready"; private string _defaultShell="powershell.exe";
- public ObservableCollection<Project> Projects{get;}=[]; public ObservableCollection<string> Types{get;}=[]; public ObservableCollection<string> TechnologyOptions{get;}=[]; public ObservableCollection<string> CategoryOptions{get;}=[]; public ObservableCollection<RootFolder> Roots{get;}=[]; public ObservableCollection<TerminalSessionViewModel> Sessions{get;}=[]; public ObservableCollection<IconCandidate> IconCandidates{get;}=[];
+ public BatchCollection<Project> Projects{get;}=[]; public ObservableCollection<string> Types{get;}=[]; public ObservableCollection<string> TechnologyOptions{get;}=[]; public ObservableCollection<string> CategoryOptions{get;}=[]; public ObservableCollection<RootFolder> Roots{get;}=[]; public ObservableCollection<TerminalSessionViewModel> Sessions{get;}=[]; public ObservableCollection<IconCandidate> IconCandidates{get;}=[];
  public IReadOnlyList<string> SpecialFilters{get;}=["All","Favorites","Running","Git repositories","No Git repository","Git changes","Custom icon","Uncategorized","Never opened"];
- public string Search{get=>_search;set{if(Set(ref _search,value))QueueSearchRefresh();}} public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string SelectedSpecial{get=>_selectedSpecial;set{if(Set(ref _selectedSpecial,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value)){SavePref("LastPage",value);Raise(nameof(IsLibraryPage));Raise(nameof(ProjectPageTitle));Refresh();}}} public bool IsLibraryPage=>_currentPage is "Projects" or "Archived" or "Hidden"; public string ProjectPageTitle=>_currentPage; public Project? SelectedProject{get=>_selectedProject;set{if(_refreshing)return;if(!Set(ref _selectedProject,value))return;IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));Raise(nameof(IconFillsContainer));_=LoadGitForAsync(value);}} public bool IconFillsContainer{get=>_selectedProject?.IconFill??false;set{if(_selectedProject is not { } project||project.IconFill==value)return;var updated=project with{IconFill=value};_selectedProject=updated;var index=_allProjects.FindIndex(p=>p.Id==updated.Id);if(index>=0)_allProjects[index]=updated;_=QueueWriteAsync(()=>_repository.SetProjectIconFillAsync(updated.Id,value));Raise(nameof(SelectedProject));Raise(nameof(IconFillsContainer));Refresh();}}
+ public IReadOnlyList<string> IconShapeOptions{get;}=["Rounded","Sharp","Circle","Squircle"]; public RelayCommand SetIconShapeCommand{get;}
+ public string IconShape{get=>_selectedProject?.IconShape??"Rounded";set{if(_selectedProject is not { } project||!IconShapeOptions.Contains(value,StringComparer.OrdinalIgnoreCase)||string.Equals(project.IconShape,value,StringComparison.OrdinalIgnoreCase))return;var updated=project with{IconShape=value};_selectedProject=updated;var index=_allProjects.FindIndex(p=>p.Id==updated.Id);if(index>=0)_allProjects[index]=updated;_=QueueWriteAsync(()=>_repository.SetProjectIconShapeAsync(updated.Id,value));Raise(nameof(SelectedProject));Raise(nameof(IconShape));Refresh();}}
+ public string Search{get=>_search;set{if(Set(ref _search,value)){Raise(nameof(ActiveSearch));QueueSearchRefresh();}}} public string ActiveSearch{get=>_currentPage=="Docs"?_docSearch:_search;set{if(_currentPage=="Docs")DocSearch=value;else Search=value;}} public string SearchPlaceholder=>_currentPage=="Docs"?"Search docs...":"Search projects..."; public string SelectedType{get=>_selectedType;set{if(Set(ref _selectedType,value))Refresh();}} public string SelectedTechnology{get=>_selectedTechnology;set{if(Set(ref _selectedTechnology,value))Refresh();}} public string SelectedCategory{get=>_selectedCategory;set{if(Set(ref _selectedCategory,value))Refresh();}} public string SelectedSpecial{get=>_selectedSpecial;set{if(Set(ref _selectedSpecial,value))Refresh();}} public string CurrentPage{get=>_currentPage;set{if(Set(ref _currentPage,value)){SavePref("LastPage",value);Raise(nameof(IsLibraryPage));Raise(nameof(ProjectPageTitle));Raise(nameof(ActiveSearch));Raise(nameof(SearchPlaceholder));Refresh();if(value=="Docs")RebuildDocEntries();}}} public bool IsLibraryPage=>_currentPage is "Projects" or "Archived" or "Hidden"; public string ProjectPageTitle=>_currentPage; public Project? SelectedProject{get=>_selectedProject;set{if(_refreshing)return;if(!Set(ref _selectedProject,value))return;IconCandidates.Clear();Raise(nameof(HasMoreGitFiles));Raise(nameof(MoreGitFileCount));Raise(nameof(IconFillsContainer));Raise(nameof(IconShape));_=LoadGitForAsync(value);}} public bool IconFillsContainer{get=>_selectedProject?.IconFill??false;set{if(_selectedProject is not { } project||project.IconFill==value)return;var updated=project with{IconFill=value};_selectedProject=updated;var index=_allProjects.FindIndex(p=>p.Id==updated.Id);if(index>=0)_allProjects[index]=updated;_=QueueWriteAsync(()=>_repository.SetProjectIconFillAsync(updated.Id,value));Raise(nameof(SelectedProject));Raise(nameof(IconFillsContainer));Refresh();}}
  /// <summary>Reads git status for every project off the UI thread, a few at a time, and folds the
  /// results back in one pass. Scanning used to do this inline — a child process per project, in
  /// series — which made adding a root feel frozen and left the status stale from then on.</summary>
  public async Task RefreshGitAsync()
  {
+  if(!IsUiActive){_gitRefreshPending=true;return;}
   var targets=_allProjects.Where(p=>Directory.Exists(p.Path)).ToArray();
   if(targets.Length==0)return;
-  using var gate=new SemaphoreSlim(Math.Max(2,Environment.ProcessorCount/2));
+  using var gate=new SemaphoreSlim(Math.Min(2,Environment.ProcessorCount));
   var results=await Task.WhenAll(targets.Select(async project=>{
    await gate.WaitAsync();
    try{return (project.Id,Status:await _git.GetStatusAsync(project.Path));}
@@ -49,7 +52,7 @@ public sealed partial class MainViewModel:ObservableObject
  private Task QueueWriteAsync(Func<Task> write){lock(_writeGate)return _pendingWrites=_pendingWrites.ContinueWith(_=>write(),CancellationToken.None,TaskContinuationOptions.None,TaskScheduler.Default).Unwrap();}
  public Task<string?> GetPrefAsync(string key)=>_repository.GetSettingAsync(key);
  private bool _statusVisible; public bool StatusVisible{get=>_statusVisible;set=>Set(ref _statusVisible,value);} private DispatcherTimer? _toast;
- private void ShowToast(){StatusVisible=true;(_toast??=CreateToast()).Stop();_toast.Start();}
+ private void ShowToast(){if(!IsUiActive)return;StatusVisible=true;(_toast??=CreateToast()).Stop();_toast.Start();}
  private DispatcherTimer CreateToast(){var t=new DispatcherTimer{Interval=TimeSpan.FromSeconds(3.2)};t.Tick+=(_,__)=>{StatusVisible=false;t.Stop();};return t;}
  public IReadOnlyList<string> Shells{get;}=["powershell.exe","cmd.exe","pwsh.exe","wsl.exe"];
  public string Version=>"v"+(System.Reflection.Assembly.GetExecutingAssembly().GetName().Version?.ToString(2)??"1.0");
@@ -89,15 +92,15 @@ public sealed partial class MainViewModel:ObservableObject
 
  // ---- Tools ----
  private string _ideCommand=""; public string IdeCommand{get=>_ideCommand;set{if(Set(ref _ideCommand,value))SavePref("IdeCommand",value.Trim());}}
- public RelayCommand OpenDataFolderCommand{get;}
+ public RelayCommand OpenDataFolderCommand{get;} public AsyncRelayCommand CreateBackupCommand{get;} public AsyncRelayCommand RestoreBackupCommand{get;}
  public static string DataFolder=>Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"Puppeteer");
  public RelayCommand ResetLayoutCommand{get;}
  private string _groqApiKey=""; public string GroqApiKey{get=>_groqApiKey;set{if(Set(ref _groqApiKey,value)){_=SaveGroqKeyAsync();Raise(nameof(UsingEnvGroqKey));}}}
  private bool _showGroqApiKey; public bool ShowGroqApiKey{get=>_showGroqApiKey;set=>Set(ref _showGroqApiKey,value);}
  public RelayCommand ToggleGroqKeyVisibilityCommand{get;}
  public bool UsingEnvGroqKey=>string.IsNullOrWhiteSpace(_groqApiKey)&&!string.IsNullOrWhiteSpace(_config.GroqApiKeyFromEnv);
- public RelayCommand SelectFolderCommand{get;} public RelayCommand ClearFolderCommand{get;} public RelayCommand ToggleTerminalMaxCommand{get;} public RelayCommand ToggleSplitCommand{get;} public RelayCommand SetSplitColumnsCommand{get;} public RelayCommand ToggleSidebarCommand{get;} public RelayCommand ToggleDetailsCommand{get;} public RelayCommand ToggleTerminalCommand{get;} public AsyncRelayCommand RescanCommand{get;}
- public ObservableCollection<FolderNode> FolderTree{get;}=[];
+ public RelayCommand SelectFolderCommand{get;} public RelayCommand ClearFolderCommand{get;} public RelayCommand HideFolderProjectsCommand{get;} public RelayCommand ToggleFolderExpansionCommand{get;} public RelayCommand ToggleTerminalMaxCommand{get;} public RelayCommand ToggleSplitCommand{get;} public RelayCommand SetSplitColumnsCommand{get;} public RelayCommand ToggleSidebarCommand{get;} public RelayCommand ToggleDetailsCommand{get;} public RelayCommand ToggleTerminalCommand{get;} public AsyncRelayCommand RescanCommand{get;}
+ public ObservableCollection<FolderNode> FolderTree{get;}=[]; public bool AreAllFoldersCollapsed=>FolderTree.Count>0&&AllFolders().All(folder=>!folder.IsExpanded); public string FolderExpandToggleToolTip=>AreAllFoldersCollapsed?"Expand all folders":"Collapse all folders";
  private FolderNode? _selectedFolder; public FolderNode? SelectedFolder{get=>_selectedFolder;set{if(Set(ref _selectedFolder,value)){Raise(nameof(FolderFilterActive));Refresh();}}}
  public bool FolderFilterActive=>_selectedFolder is not null;
  public bool HasAnyProjects=>_allProjects.Count>0;
@@ -109,15 +112,33 @@ public sealed partial class MainViewModel:ObservableObject
  private int _splitColumns; public int SplitColumns{get=>_splitColumns;set{if(Set(ref _splitColumns,value))SavePref("TerminalSplitColumns",value.ToString());}}
  private bool _sidebarCollapsed; public bool SidebarCollapsed{get=>_sidebarCollapsed;set=>Set(ref _sidebarCollapsed,value);}
  private bool _detailsCollapsed; public bool DetailsCollapsed{get=>_detailsCollapsed;set=>Set(ref _detailsCollapsed,value);}
- public MainViewModel(IProjectRepository repository,IProjectScanner scanner,ProjectSearchService searchService,ITerminalService terminalService,IProjectLauncher launcher,IIconDiscoveryService icons,IFilePicker picker,IProjectClassifier classifier,AppConfig config,IGitMetadataService git,IStartupService startup,IProjectDocVault vault)
+ public MainViewModel(IProjectRepository repository,IProjectBackupService backup,IProjectScanner scanner,ProjectSearchService searchService,ITerminalService terminalService,IProjectLauncher launcher,IIconDiscoveryService icons,IFilePicker picker,IProjectClassifier classifier,IDocFieldGenerator fieldGenerator,AppConfig config,IGitMetadataService git,IStartupService startup,IProjectDocVault vault)
  {
-  _repository=repository;_scanner=scanner;_searchService=searchService;_terminalService=terminalService;_launcher=launcher;_icons=icons;_picker=picker;_classifier=classifier;_config=config;_git=git;_startup=startup;_vault=vault;InitializeDocs();
+  _repository=repository;_backup=backup;_scanner=scanner;_searchService=searchService;_terminalService=terminalService;_launcher=launcher;_icons=icons;_picker=picker;_classifier=classifier;_fieldGenerator=fieldGenerator;_config=config;_git=git;_startup=startup;_vault=vault;InitializeDocs();InitializeFieldEditor();
   Sessions.CollectionChanged+=(_,__)=>{Raise(nameof(RunningCount));Raise(nameof(RunningBadge));Refresh();};
   StartDurationTicker();
   NavigateCommand=new(p=>CurrentPage=p?.ToString()??"Projects");AddRootCommand=new(_=>AddRootAsync());RemoveRootCommand=new(p=>RemoveRootAsync(p as RootFolder),p=>p is RootFolder);OpenTerminalCommand=new(p=>OpenTerminalAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenFolderCommand=new(p=>OpenFolder(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);OpenIdeCommand=new(p=>OpenIde(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CollapseTerminalCommand=new(_=>TerminalOpen=false);FindIconCommand=new(_=>FindIconsAsync(),_=>SelectedProject is not null);ChangeIconCommand=new(_=>ChangeIconAsync(),_=>SelectedProject is not null);ResetIconCommand=new(_=>SetIconAsync(null),_=>SelectedProject is not null);ChooseCandidateCommand=new(p=>SetIconAsync((p as IconCandidate)?.Path),p=>p is IconCandidate);DeleteProjectCommand=new(p=>DeleteProjectAsync(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);
-  CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CopyRepositoryCommand=new(p=>CopyRepository(p as Project??SelectedProject));OpenRepositoryCommand=new(p=>OpenRepository(p as Project??SelectedProject));SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.Output.Clear();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);RestartSessionCommand=new(p=>RestartSession(p as TerminalSessionViewModel??SelectedSession),p=>(p as TerminalSessionViewModel??SelectedSession) is not null);StopAllCommand=new(_=>{foreach(var s in Sessions.ToArray())s.StopCommand.Execute(null);Status="Stopped all sessions";},_=>Sessions.Any(s=>s.Running));CopyOutputCommand=new(_=>CopyOutput(),_=>SelectedSession is not null);TogglePinCommand=new(p=>TogglePin(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);ToggleHiddenCommand=new(p=>ToggleProjectState(p as Project??SelectedProject,_hiddenProjects,"Hidden","Shown"),p=>(p as Project??SelectedProject) is not null);ToggleArchivedCommand=new(p=>ToggleProjectState(p as Project??SelectedProject,_archivedProjects,"Archived","Restored"),p=>(p as Project??SelectedProject) is not null);ResetLayoutCommand=new(_=>{_=QueueWriteAsync(()=>_repository.SetSettingsAsync(new Dictionary<string,string?>{["WindowWidth"]=null,["WindowHeight"]=null,["SidebarWidth"]=null,["DetailsWidth"]=null,["TerminalHeight"]=null,["Maximized"]=null}));Status="Window layout will reset next launch";});
-  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);SetSplitColumnsCommand=new(p=>SplitColumns=int.TryParse(p?.ToString(),out var columns)&&columns is >=0 and <=3?columns:0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);ToggleTerminalCommand=new(_=>TerminalOpen=!TerminalOpen);ToggleGroqKeyVisibilityCommand=new(_=>ShowGroqApiKey=!ShowGroqApiKey);OpenDataFolderCommand=new(_=>{_launcher.OpenFolder(DataFolder);Status="Opened Puppeteer's data folder";});RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
-  ClearFiltersCommand=new(_=>{_selectedFolder=null;Raise(nameof(SelectedFolder));Raise(nameof(FolderFilterActive));_selectedType="All";_selectedTechnology="All";_selectedCategory="All";_selectedSpecial="All";Raise(nameof(SelectedSpecial));_search="";Raise(nameof(Search));Refresh();});
+  CopyPathCommand=new(p=>CopyPath(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);CopyRepositoryCommand=new(p=>CopyRepository(p as Project??SelectedProject));OpenRepositoryCommand=new(p=>OpenRepository(p as Project??SelectedProject));SetViewCommand=new(p=>ViewMode=p?.ToString()??"Grid");NewSessionCommand=new(_=>NewSession(),_=>SelectedProject is not null);CloseSessionCommand=new(p=>CloseSession(p as TerminalSessionViewModel),p=>p is TerminalSessionViewModel);ClearOutputCommand=new(_=>{SelectedSession?.ClearOutput();Status="Terminal cleared";},_=>SelectedSession is not null);RunPresetCommand=new(p=>RunPreset(p as CommandPreset),p=>p is CommandPreset&&SelectedProject is not null);RestartSessionCommand=new(p=>RestartSession(p as TerminalSessionViewModel??SelectedSession),p=>(p as TerminalSessionViewModel??SelectedSession) is not null);StopAllCommand=new(_=>{foreach(var s in Sessions.ToArray())s.StopCommand.Execute(null);Status="Stopped all sessions";},_=>Sessions.Any(s=>s.Running));CopyOutputCommand=new(_=>CopyOutput(),_=>SelectedSession is not null);TogglePinCommand=new(p=>TogglePin(p as Project??SelectedProject),p=>(p as Project??SelectedProject) is not null);ToggleHiddenCommand=new(p=>ToggleProjectState(p as Project??SelectedProject,_hiddenProjects,"Hidden","Shown"),p=>(p as Project??SelectedProject) is not null);ToggleArchivedCommand=new(p=>ToggleProjectState(p as Project??SelectedProject,_archivedProjects,"Archived","Restored"),p=>(p as Project??SelectedProject) is not null);ResetLayoutCommand=new(_=>{_=QueueWriteAsync(()=>_repository.SetSettingsAsync(new Dictionary<string,string?>{["WindowWidth"]=null,["WindowHeight"]=null,["SidebarWidth"]=null,["DetailsWidth"]=null,["TerminalHeight"]=null,["Maximized"]=null}));Status="Window layout will reset next launch";});
+  SelectFolderCommand=new(p=>SelectedFolder=p as FolderNode);ClearFolderCommand=new(_=>SelectedFolder=null);HideFolderProjectsCommand=new(p=>HideFolderProjects(p as FolderNode));SetIconShapeCommand=new(p=>IconShape=p?.ToString()??"Rounded");ToggleFolderExpansionCommand=new(_=>ToggleFolderExpansion());ToggleTerminalMaxCommand=new(_=>TerminalMaximized=!TerminalMaximized);ToggleSplitCommand=new(_=>TerminalSplit=!TerminalSplit,_=>Sessions.Count>0);SetSplitColumnsCommand=new(p=>SplitColumns=int.TryParse(p?.ToString(),out var columns)&&columns is >=0 and <=3?columns:0);ToggleSidebarCommand=new(_=>SidebarCollapsed=!SidebarCollapsed);ToggleDetailsCommand=new(_=>DetailsCollapsed=!DetailsCollapsed);ToggleTerminalCommand=new(_=>TerminalOpen=!TerminalOpen);ToggleGroqKeyVisibilityCommand=new(_=>ShowGroqApiKey=!ShowGroqApiKey);OpenDataFolderCommand=new(_=>{_launcher.OpenFolder(DataFolder);Status="Opened Puppeteer's data folder";});CreateBackupCommand=new(_=>CreateBackupAsync(),_=>!IsBusy);RestoreBackupCommand=new(_=>RestoreBackupAsync(),_=>!IsBusy);RescanCommand=new(_=>RescanAllAsync(),_=>Roots.Count>0&&!IsBusy);
+  ClearFiltersCommand=new(_=>{_selectedFolder=null;Raise(nameof(SelectedFolder));Raise(nameof(FolderFilterActive));_selectedType="All";_selectedTechnology="All";_selectedCategory="All";_selectedSpecial="All";Raise(nameof(SelectedSpecial));_search="";Raise(nameof(Search));Raise(nameof(ActiveSearch));Refresh();});
+ }
+ private async Task CreateBackupAsync()
+ {
+  var path=_picker.PickBackupForSave();if(string.IsNullOrWhiteSpace(path))return;
+  IsBusy=true;Status="Creating backup…";
+  try{await FlushPendingWritesAsync();var result=await _backup.CreateAsync(path);Status=$"Backed up {result.ProjectCount} project{(result.ProjectCount==1?"":"s")} and {result.RootCount} root{(result.RootCount==1?"":"s")}.";}
+  catch(Exception e){Status=$"Couldn't create backup: {e.Message}";}
+  finally{IsBusy=false;}
+ }
+ private async Task RestoreBackupAsync()
+ {
+  var path=_picker.PickBackupForRestore();if(string.IsNullOrWhiteSpace(path))return;
+  var answer=MessageBox.Show("Restore this backup?\n\nYour current Puppeteer library data, links, customizations and settings will be replaced. Project folders and their files will not be changed.","Restore backup?",MessageBoxButton.YesNo,MessageBoxImage.Warning);
+  if(answer!=MessageBoxResult.Yes)return;
+  IsBusy=true;Status="Restoring backup…";
+  try{await FlushPendingWritesAsync();var result=await _backup.RestoreAsync(path);await LoadAsync();Status=$"Restored {result.ProjectCount} project{(result.ProjectCount==1?"":"s")} and {result.RootCount} root{(result.RootCount==1?"":"s")}.";}
+  catch(Exception e){Status=$"Couldn't restore backup: {e.Message}";}
+  finally{IsBusy=false;}
  }
  // Each keystroke re-filters, re-derives the three option lists and rebuilds the whole grid. That is
  // affordable once, not once per character on a fast typist's search term, so coalesce a burst of
@@ -140,9 +161,9 @@ public sealed partial class MainViewModel:ObservableObject
  private DispatcherTimer? _durations;
  private void StartDurationTicker()
  {
-  _durations=new DispatcherTimer{Interval=TimeSpan.FromSeconds(1)};
-  _durations.Tick+=(_,__)=>{ foreach(var session in Sessions) session.TickDuration(); };
-  _durations.Start();
+  _durations=new DispatcherTimer(DispatcherPriority.Background){Interval=TimeSpan.FromMilliseconds(250)};
+  _durations.Tick+=(_,__)=>{ foreach(var session in Sessions){session.FlushOutput();session.TickDuration();} UpdateDisplayTimer(); };
+  Sessions.CollectionChanged+=(_,__)=>UpdateDisplayTimer();
  }
  private async Task RescanAllAsync()
  {
@@ -165,7 +186,7 @@ public sealed partial class MainViewModel:ObservableObject
   _defaultShell=await _repository.GetSettingAsync("DefaultShell")??_defaultShell;Raise(nameof(DefaultShell));
   _viewMode=await _repository.GetSettingAsync("ViewMode")??_viewMode;Raise(nameof(ViewMode));
   _sortMode=await _repository.GetSettingAsync("SortMode")??_sortMode;Raise(nameof(SortMode));
-  _currentPage=await _repository.GetSettingAsync("LastPage")??_currentPage;Raise(nameof(CurrentPage));Raise(nameof(IsLibraryPage));Raise(nameof(ProjectPageTitle));
+  _currentPage=await _repository.GetSettingAsync("LastPage")??_currentPage;Raise(nameof(CurrentPage));Raise(nameof(IsLibraryPage));Raise(nameof(ProjectPageTitle));Raise(nameof(ActiveSearch));Raise(nameof(SearchPlaceholder));
   _autoClassify=await _repository.GetSettingAsync("AutoClassify")!="0";Raise(nameof(AutoClassify));
   _startMinimized=await _repository.GetSettingAsync("StartMinimized")=="1";Raise(nameof(StartMinimized));
   _minimizeToTray=await _repository.GetSettingAsync("MinimizeToTray")!="0";Raise(nameof(MinimizeToTray));
@@ -187,6 +208,7 @@ public sealed partial class MainViewModel:ObservableObject
  private Task SaveGroqKeyAsync()=>QueueWriteAsync(()=>_repository.SetSettingAsync("GroqApiKey",_groqApiKey.Trim()));
  private async Task ClassifyUncategorizedAsync()
  {
+  if(!IsUiActive){_classificationPending=true;return;}
   if(!_autoClassify)return;
   var key=string.IsNullOrWhiteSpace(_groqApiKey)?_config.GroqApiKeyFromEnv:_groqApiKey;
   if(string.IsNullOrWhiteSpace(key))return;
@@ -202,7 +224,14 @@ public sealed partial class MainViewModel:ObservableObject
   await Application.Current.Dispatcher.InvokeAsync(Refresh);
  }
  private void ApplyCategory(Guid id,string category){var i=_allProjects.FindIndex(p=>p.Id==id);if(i>=0)_allProjects[i]=_allProjects[i] with{Category=category};}
- private void RebuildTree(){FolderTree.Clear();foreach(var node in FolderNode.Build(Roots,_allProjects))FolderTree.Add(node);if(_selectedFolder is not null&&_allProjects.All(p=>!p.Path.StartsWith(_selectedFolder.Path,StringComparison.OrdinalIgnoreCase)))SelectedFolder=null;}
+ private IEnumerable<FolderNode> AllFolders()=>FlattenFolders(FolderTree);
+ private static IEnumerable<FolderNode> FlattenFolders(IEnumerable<FolderNode> folders)=>folders.SelectMany(folder=>new[]{folder}.Concat(FlattenFolders(folder.Children)));
+ private void ToggleFolderExpansion(){var folders=AllFolders().ToArray();if(folders.Length==0)return;var expand=folders.All(folder=>!folder.IsExpanded);foreach(var folder in folders)folder.IsExpanded=expand;Raise(nameof(AreAllFoldersCollapsed));Raise(nameof(FolderExpandToggleToolTip));}
+ private void HideFolderProjects(FolderNode? folder){if(folder is null)return;var projectIds=_allProjects.Where(project=>IsWithinFolder(project.Path,folder.Path)).Select(project=>project.Id).ToArray();if(projectIds.Length==0)return;var restore=folder.IsHidden;foreach(var id in projectIds){if(restore)_hiddenProjects.Remove(id);else _hiddenProjects.Add(id);}UpdateFolderHiddenStates();SavePref("HiddenProjects",string.Join(',',_hiddenProjects));Refresh();if(!restore&&_selectedProject is not null&&_hiddenProjects.Contains(_selectedProject.Id))SelectedProject=Projects.FirstOrDefault();Status=restore?$"Shown {projectIds.Length} project{(projectIds.Length==1?"":"s")} in {folder.Name}":$"Hidden {projectIds.Length} project{(projectIds.Length==1?"":"s")} in {folder.Name}";}
+ private static bool IsWithinFolder(string projectPath,string folderPath){var relative=Path.GetRelativePath(Path.GetFullPath(folderPath),Path.GetFullPath(projectPath));return relative=="."||(!relative.StartsWith(".."+Path.DirectorySeparatorChar,StringComparison.Ordinal)&&!Path.IsPathRooted(relative));}
+ private void OnFolderExpansionChanged(object? sender,EventArgs e){Raise(nameof(AreAllFoldersCollapsed));Raise(nameof(FolderExpandToggleToolTip));}
+ private void UpdateFolderHiddenStates(){foreach(var folder in AllFolders()){var projects=_allProjects.Where(project=>IsWithinFolder(project.Path,folder.Path)).ToArray();folder.IsHidden=projects.Length>0&&projects.All(project=>_hiddenProjects.Contains(project.Id));}}
+ private void RebuildTree(){FolderTree.Clear();foreach(var node in FolderNode.Build(Roots,_allProjects))FolderTree.Add(node);UpdateFolderHiddenStates();foreach(var folder in AllFolders())folder.ExpansionChanged+=OnFolderExpansionChanged;Raise(nameof(AreAllFoldersCollapsed));Raise(nameof(FolderExpandToggleToolTip));if(_selectedFolder is not null&&_allProjects.All(p=>!p.Path.StartsWith(_selectedFolder.Path,StringComparison.OrdinalIgnoreCase)))SelectedFolder=null;}
  private Task AddRootAsync(){var path=_picker.PickFolder();return string.IsNullOrWhiteSpace(path)?Task.CompletedTask:AddRootPathAsync(path);}
  public async Task AddRootPathAsync(string path){
   if(string.IsNullOrWhiteSpace(path)||!Directory.Exists(path)){Status="That folder doesn't exist.";return;}
@@ -220,7 +249,7 @@ public sealed partial class MainViewModel:ObservableObject
  private void CopyRepository(Project? project){var remote=project?.Git?.RemoteUrl;if(string.IsNullOrWhiteSpace(remote)){Status="No repository remote is configured for this project.";return;}try{Clipboard.SetText(remote);Status="Copied repository remote";}catch{Status="Couldn't access the clipboard";}}
  private void OpenRepository(Project? project){var remote=project?.Git?.RemoteUrl;if(string.IsNullOrWhiteSpace(remote)){Status="No repository remote is configured for this project.";return;}var url=RepositoryWebUrl(remote);if(url is null){Status="This repository remote doesn't have a web URL.";return;}try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url){UseShellExecute=true});Status="Opened repository in your browser";}catch{Status="Couldn't open the repository URL.";}}
  private static string? RepositoryWebUrl(string remote){var value=remote.Trim();if(value.StartsWith("git@",StringComparison.OrdinalIgnoreCase)){var colon=value.IndexOf(':');if(colon>0)value="https://"+value[4..colon]+"/"+value[(colon+1)..];}else if(value.StartsWith("ssh://git@",StringComparison.OrdinalIgnoreCase))value="https://"+value[10..];if(!value.StartsWith("https://",StringComparison.OrdinalIgnoreCase)&&!value.StartsWith("http://",StringComparison.OrdinalIgnoreCase))return null;return value.EndsWith(".git",StringComparison.OrdinalIgnoreCase)?value[..^4]:value;}
- private void CopyOutput(){if(SelectedSession is null)return;try{Clipboard.SetText(string.Join(Environment.NewLine,SelectedSession.Output));Status="Copied terminal output";}catch{Status="Couldn't access the clipboard";}}
+ private void CopyOutput(){if(SelectedSession is null)return;try{SelectedSession.FlushOutput();Clipboard.SetText(string.Join(Environment.NewLine,SelectedSession.Output));Status="Copied terminal output";}catch{Status="Couldn't access the clipboard";}}
  private void TogglePin(Project? project){if(project is null)return;var ids=Converters.PinStore.Ids;if(!ids.Add(project.Id))ids.Remove(project.Id);SavePref("Pinned",string.Join(',',ids));Refresh();Raise(nameof(SelectedProject));Status=ids.Contains(project.Id)?$"Pinned {project.Name}":$"Unpinned {project.Name}";}
  private async Task LoadProjectStateAsync(string key,HashSet<Guid> target){target.Clear();foreach(var id in (await _repository.GetSettingAsync(key)??"").Split(',',StringSplitOptions.RemoveEmptyEntries))if(Guid.TryParse(id,out var parsed))target.Add(parsed);}
  private void ToggleProjectState(Project? project,HashSet<Guid> state,string addedVerb,string removedVerb){if(project is null)return;var added=state.Add(project.Id);if(!added)state.Remove(project.Id);var key=ReferenceEquals(state,_hiddenProjects)?"HiddenProjects":"ArchivedProjects";SavePref(key,string.Join(',',state));Refresh();SelectedProject=Projects.FirstOrDefault();Status=$"{(added?addedVerb:removedVerb)} {project.Name}";}
@@ -229,7 +258,7 @@ public sealed partial class MainViewModel:ObservableObject
  private async Task OpenTerminalAsync(Project? project,string? command=null,string? name=null){if(project is null)return;if(!Directory.Exists(project.Path)){Status="Project folder no longer exists on disk.";return;}try{var session=await _terminalService.CreateAsync(new(project.Path,DefaultShell,command,name??project.Name));MarkOpened(project);var vm=new TerminalSessionViewModel(session,project);vm.PropertyChanged+=(_,e)=>{if(e.PropertyName==nameof(TerminalSessionViewModel.Running)){Raise(nameof(RunningCount));Raise(nameof(RunningBadge));Refresh();}};Sessions.Add(vm);SelectedSession=vm;TerminalOpen=true;Status=command is null?$"Terminal started in {project.Name}":$"Running “{command}” in {project.Name}";}catch(Exception e){Status=e.Message;}}
  private void RunPreset(CommandPreset? preset){if(preset is null||SelectedProject is null)return;_=OpenTerminalAsync(SelectedProject,preset.Command,preset.Name);}
  private void RestartSession(TerminalSessionViewModel? session){if(session?.Session is null)return;var project=_allProjects.FirstOrDefault(p=>p.Path.Equals(session.Session.ProjectPath,StringComparison.OrdinalIgnoreCase));if(project is null){Status="Can't restart — project not found.";return;}var command=session.Session.Command is {Length:>0} c?c:null;CloseSession(session);_=OpenTerminalAsync(project,command,session.Name);}
- private async Task FindIconsAsync(){if(SelectedProject is null)return;IconCandidates.Clear();foreach(var icon in await _icons.FindAsync(SelectedProject.Path))IconCandidates.Add(icon);Status=$"Found {IconCandidates.Count} icon candidates";}
+ private async Task FindIconsAsync(){if(SelectedProject is null)return;var project=SelectedProject;IconCandidates.Clear();try{foreach(var icon in await _icons.FindAsync(project.Path))IconCandidates.Add(icon);Status=$"Found {IconCandidates.Count} icon candidates";}catch(Exception e){Status=$"Couldn't find icons for {project.Name}: {e.Message}";}}
  private Task ChangeIconAsync()=>SetIconAsync(_picker.PickIcon());
  private async Task SetIconAsync(string? path){if(SelectedProject is null||path is "")return;await _repository.SetProjectIconAsync(SelectedProject.Id,path);var updated=SelectedProject with{CustomIconPath=path};var index=_allProjects.FindIndex(p=>p.Id==updated.Id);if(index>=0)_allProjects[index]=updated;Refresh();SelectedProject=Projects.FirstOrDefault(p=>p.Id==updated.Id);Status=path is null?"Framework icon restored":"Project icon updated";}
  private bool _refreshing;
@@ -237,6 +266,7 @@ public sealed partial class MainViewModel:ObservableObject
  {
   // Rebuilding a bound ComboBox's items nulls its SelectedItem, which writes back and re-enters
   // Refresh; guard against that and only rebuild each option list when it actually changed.
+  if(!IsUiActive){_refreshPending=true;return;}
   if(_refreshing)return;
   _refreshing=true;
   try
@@ -266,8 +296,8 @@ public sealed partial class MainViewModel:ObservableObject
    // Live session state lives in the session view models, not in the stored project rows, so graft it
    // on here — it is what drives the running dot on a card and the Sessions block in the inspector.
    var previousId=_selectedProject?.Id;
-   Projects.Clear();
-   foreach(var p in ordered)Projects.Add(byPath.TryGetValue(p.Path,out var sessions)?p with{Sessions=sessions}:p);
+
+   Projects.ReplaceAll(ordered.Select(p=>byPath.TryGetValue(p.Path,out var sessions)?p with{Sessions=sessions}:p));
    // Clearing the list makes the ListBox write a null selection back; restore it quietly so typing in
    // the search box doesn't blank the inspector on every keystroke.
    _selectedProject=previousId is Guid id?Projects.FirstOrDefault(p=>p.Id==id):null;
@@ -275,6 +305,7 @@ public sealed partial class MainViewModel:ObservableObject
    Raise(nameof(HasAnyProjects));Raise(nameof(TotalProjects));Raise(nameof(LibrarySummary));
   }
   finally{_refreshing=false;}
+  RebuildDocEntries();
  }
  private Dictionary<string,IReadOnlyList<ProjectSession>> SessionsByProjectPath()=>
   Sessions.Where(s=>s.Session is not null)

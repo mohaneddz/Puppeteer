@@ -25,8 +25,13 @@ public sealed partial class MainViewModel
     public string ReaderText { get => _readerText; private set => Set(ref _readerText, value); }
 
     private string _readerPath = "";
-    public string ReaderPath { get => _readerPath; private set { if (Set(ref _readerPath, value)) Raise(nameof(HasReaderFile)); } }
+    public string ReaderPath
+    {
+        get => _readerPath;
+        private set { if (Set(ref _readerPath, value)) { Raise(nameof(HasReaderFile)); Raise(nameof(ReaderBasePath)); } }
+    }
     public bool HasReaderFile => _readerPath.Length > 0;
+    public string ReaderBasePath => _readerPath.Length > 0 ? Path.GetDirectoryName(_readerPath) ?? "" : "";
 
     public string ReaderTitle => _readerProject?.Name ?? "Projects index";
     public string ReaderSubtitle => _readerPath.Length > 0 ? _readerPath : "Nothing to read here yet.";

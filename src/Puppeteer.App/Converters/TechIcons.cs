@@ -62,6 +62,7 @@ internal static class TechIcons
         {
             var bmp = new BitmapImage();
             bmp.BeginInit();
+            bmp.DecodePixelWidth = 128;
             bmp.UriSource = new Uri(path, UriKind.RelativeOrAbsolute);
             bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
@@ -108,6 +109,50 @@ public sealed class ProjectIconSourceConverter : IValueConverter
     public object? Convert(object? value, Type t, object? parameter, CultureInfo c) =>
         value is Project p ? TechIcons.Resolve(p) : null;
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
+public sealed class ProjectIconShapeConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var shape = value is Project project ? project.IconShape : value?.ToString();
+        return shape?.ToLowerInvariant() switch
+        {
+            "sharp" => new CornerRadius(0),
+            "circle" => new CornerRadius(1000),
+            "squircle" => new CornerRadius(11),
+            _ => new CornerRadius(7),
+        };
+    }
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>Provides the matching radius for shapes rendered as a Rectangle.</summary>
+public sealed class ProjectIconRadiusConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        var shape = value is Project project ? project.IconShape : value?.ToString();
+        return shape?.ToLowerInvariant() switch
+        {
+            "sharp" => 0d,
+            "circle" => 1000d,
+            "squircle" => 11d,
+            _ => 7d,
+        };
+    }
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>Determines whether a shape option is the shape selected for the current project.</summary>
+public sealed class IconShapeSelectedConverter : IMultiValueConverter
+{
+    public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture) =>
+        values.Length >= 2 &&
+        string.Equals(values[0]?.ToString(), values[1]?.ToString(), StringComparison.OrdinalIgnoreCase);
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>
+        throw new NotSupportedException();
 }
 
 /// <summary>Uses a custom icon's dominant color as a subtle background gradient, while framework

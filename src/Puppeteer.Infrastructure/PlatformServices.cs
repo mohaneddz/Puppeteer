@@ -11,9 +11,10 @@ public sealed class ProcessTerminalService : ITerminalService
     public async Task<ITerminalSession> CreateAsync(TerminalOptions options, CancellationToken cancellationToken = default)
     {
         var session = new ProcessTerminalSession(options);
-        session.Exited += (_, _) => { };
+        session.Exited += (_, _) => { lock (_gate) _sessions.Remove(session); };
         lock (_gate) _sessions.Add(session);
-        await session.StartAsync(cancellationToken);
+        try { await session.StartAsync(cancellationToken); }
+        catch { lock (_gate) _sessions.Remove(session); throw; }
         return session;
     }
 }
@@ -59,18 +60,15 @@ public sealed class ProjectLauncher : IProjectLauncher
     public void OpenFolder(string path) => Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
     public void OpenInIde(string path, string? command = null)
     {
-        if (!string.IsNullOrWhiteSpace(command))
-        {
-            // A configured editor is invoked with the project directory as its argument — "code .",
-            // "rider", "subl" and friends all take that shape — and without the shell, so the command
-            // is resolved against PATH rather than the file-association table.
-            var info = new ProcessStartInfo(command) { WorkingDirectory = path, UseShellExecute = false, CreateNoWindow = true };
-            info.ArgumentList.Add(path);
-            Process.Start(info);
-            return;
-        }
-        var solution = Directory.EnumerateFiles(path, "*.sln*").FirstOrDefault();
-        Process.Start(new ProcessStartInfo(solution ?? path) { UseShellExecute = true });
+        // Open the repository folder rather than relying on Windows' file association for a .sln,
+        // which commonly launches Visual Studio instead of VS Code. "code ." remains supported
+        // for existing settings, but the repository path is supplied explicitly.
+        var executable = string.IsNullOrWhiteSpace(command) ? "code" : command.Trim();
+        if (executable.EndsWith(" .", StringComparison.Ordinal)) executable = executable[..^2].TrimEnd();
+
+        var info = new ProcessStartInfo(executable) { WorkingDirectory = path, UseShellExecute = false, CreateNoWindow = true };
+        info.ArgumentList.Add(path);
+        Process.Start(info);
     }
 }
 

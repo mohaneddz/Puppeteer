@@ -56,7 +56,7 @@ Built with **.NET 10** and **WPF**.
 - **Startup & notification area** — launch with Windows, start hidden, minimize to tray, close to tray.
 - **Terminal** — default shell, scrollback depth, whether to confirm quitting with sessions running.
 - **Appearance** — comfortable or compact card density.
-- **Tools** — an Open-in-IDE command (`code`, `rider`, `subl`), or leave it blank for the shell default.
+- **Tools** — an Open-in-IDE command (`code`, `rider`, `subl`), or leave it blank to open the repository in VS Code.
 - **Project docs** — the folder of per-project state docs, the projects index, and whether to keep a state history.
 - **AI categorization** — see below.
 - **Data** — reset the window layout, or open the folder holding the database.

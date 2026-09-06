@@ -23,15 +23,15 @@ public sealed partial class MainViewModel
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
     private ProjectIndexLookup? _index;
     private readonly Dictionary<Guid, ProjectIndexEntry> _indexRows = [];
-    // Looked up once per load rather than per row: the docs list is rebuilt on every keystroke of
-    // the filter box, and that is no place for a hundred file-existence checks.
+    // Looked up once per load rather than per row: the docs list is rebuilt on every search
+    // keystroke, and that is no place for a hundred file-existence checks.
     private Dictionary<Guid, string> _readmes = [];
     // Our own save fires the vault watcher a moment later. Remember what we just wrote so the app
     // does not announce its own edit as an external one.
     private (string Path, DateTime At) _lastWrite;
     private DispatcherTimer? _vaultDebounce;
 
-    public ObservableCollection<ProjectDocEntry> DocEntries { get; } = [];
+    public BatchCollection<ProjectDocEntry> DocEntries { get; } = [];
     public IReadOnlyList<string> DocFilters { get; } = ["All", "Needs writeup", "Undocumented", "Documented", "Active", "Paused", "Shipped", "Archived"];
 
     private string _docsFolder = "";
@@ -67,7 +67,7 @@ public sealed partial class MainViewModel
     public string DocFilter { get => _docFilter; set { if (Set(ref _docFilter, value)) RebuildDocEntries(); } }
 
     private string _docSearch = "";
-    public string DocSearch { get => _docSearch; set { if (Set(ref _docSearch, value)) RebuildDocEntries(); } }
+    public string DocSearch { get => _docSearch; set { if (Set(ref _docSearch, value)) { Raise(nameof(ActiveSearch)); RebuildDocEntries(); } } }
 
     /// <summary>The index's own section headings — Web, Mobile, Desktop (Tauri), AI — used as a
     /// filter, so the page groups the library the way the index already does.</summary>
@@ -128,10 +128,8 @@ public sealed partial class MainViewModel
         InitializeReader();
         PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SelectedProject)) { LoadSelectedDoc(); _ = LoadHistoryAsync(); } };
         DocEntries.CollectionChanged += (_, _) => Raise(nameof(DocEntryCount));
-        Projects.CollectionChanged += OnProjectsChanged;
     }
 
-    private void OnProjectsChanged(object? sender, NotifyCollectionChangedEventArgs e) => RebuildDocEntries();
 
     public int DocEntryCount => DocEntries.Count;
 
@@ -152,6 +150,8 @@ public sealed partial class MainViewModel
         if (string.Equals(path, _lastWrite.Path, StringComparison.OrdinalIgnoreCase) && DateTime.UtcNow - _lastWrite.At < TimeSpan.FromSeconds(3)) return;
         Application.Current?.Dispatcher.InvokeAsync(() =>
         {
+            _docsReloadPending = true;
+            if (!IsUiActive) return;
             _vaultDebounce ??= CreateVaultDebounce();
             _vaultDebounce.Stop();
             _vaultDebounce.Start();
@@ -165,14 +165,20 @@ public sealed partial class MainViewModel
         return timer;
     }
 
+    private bool _loadingDocs;
     public async Task LoadDocsAsync(bool external = false)
     {
+        if (!IsUiActive) { _docsReloadPending = true; return; }
+        if (_loadingDocs) { _docsReloadPending = true; return; }
+        _docsReloadPending = false;
         if (_vault is null) return;
+        _loadingDocs = true;
         try
         {
             var docs = await _vault.LoadAsync();
             var links = await _repository.GetDocLinksAsync();
-            var readmes = await Task.Run(() => _allProjects.ToArray()
+            var projects = _allProjects.ToArray();
+            var readmes = await Task.Run(() => projects
                 .Select(p => (p.Id, Path: ProjectReadme.Find(p.Path)))
                 .Where(x => x.Path is not null)
                 .ToDictionary(x => x.Id, x => x.Path!));
@@ -195,6 +201,16 @@ public sealed partial class MainViewModel
             if (external) Status = "Docs folder changed on disk — reloaded.";
         }
         catch (Exception e) { Status = $"Couldn't read the docs folder: {e.Message}"; }
+        finally
+        {
+            _loadingDocs = false;
+            if (_docsReloadPending && IsUiActive)
+            {
+                _vaultDebounce ??= CreateVaultDebounce();
+                _vaultDebounce.Stop();
+                _vaultDebounce.Start();
+            }
+        }
     }
 
     /// <summary>Reads the index, defaulting to a projects.md sitting beside the docs when no file has
@@ -284,6 +300,7 @@ public sealed partial class MainViewModel
 
     private void RebuildDocEntries()
     {
+        if (!IsUiActive || CurrentPage != "Docs") return;
         var terms = _docSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var entries = _allProjects
             .Select(project => new ProjectDocEntry(project,
@@ -301,8 +318,7 @@ public sealed partial class MainViewModel
             .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-        DocEntries.Clear();
-        foreach (var entry in entries) DocEntries.Add(entry);
+        DocEntries.ReplaceAll(entries);
         Raise(nameof(DocsSummary));
 
         bool Keep(ProjectDocEntry entry)
@@ -360,6 +376,30 @@ public sealed partial class MainViewModel
     public string DocNext { get => _docNext; set { if (Set(ref _docNext, value)) DocDirty = true; } }
     public string DocNotes { get => _docNotes; set { if (Set(ref _docNotes, value)) DocDirty = true; } }
     public IReadOnlyList<string> DocStatusOptions { get; } = ProjectDocStatuses.Known;
+
+    /// <summary>Generic access to a prose section by its heading, so the field editor modal and the AI
+    /// generator can work with whichever field was invoked instead of five near-identical code paths.</summary>
+    private string GetDocField(string section) => section switch
+    {
+        ProjectDocSections.Summary => DocSummary,
+        ProjectDocSections.Works => DocWorks,
+        ProjectDocSections.Broken => DocBroken,
+        ProjectDocSections.Next => DocNext,
+        ProjectDocSections.Notes => DocNotes,
+        _ => "",
+    };
+
+    private void SetDocField(string section, string value)
+    {
+        switch (section)
+        {
+            case ProjectDocSections.Summary: DocSummary = value; break;
+            case ProjectDocSections.Works: DocWorks = value; break;
+            case ProjectDocSections.Broken: DocBroken = value; break;
+            case ProjectDocSections.Next: DocNext = value; break;
+            case ProjectDocSections.Notes: DocNotes = value; break;
+        }
+    }
 
     /// <summary>The name shown for the selected project. Blanking it goes back to the folder's own
     /// name; anything else is remembered against the path and survives the folder disappearing.</summary>

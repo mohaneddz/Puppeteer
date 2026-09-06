@@ -13,7 +13,10 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public static int MaxOutputLines { get; set; } = 2000;
 
     public ITerminalSession? Session { get; }
-    public ObservableCollection<string> Output { get; } = [];
+    public BatchCollection<string> Output { get; } = [];
+    private readonly object _outputGate = new();
+    private readonly Queue<string> _pendingOutput = new();
+    public bool HasPendingOutput { get { lock (_outputGate) return _pendingOutput.Count > 0; } }
     public string Name { get; }
     public string ProjectName { get; }
     public string ProjectTechnology { get; }
@@ -43,7 +46,14 @@ public sealed class TerminalSessionViewModel : ObservableObject
 
     /// <summary>Called by the shared one-second tick so every visible duration advances together
     /// instead of each session owning a timer.</summary>
-    public void TickDuration() { if (Running) Raise(nameof(Duration)); }
+    private string? _lastDuration;
+    public void TickDuration()
+    {
+        var duration = Duration;
+        if (duration == _lastDuration) return;
+        _lastDuration = duration;
+        Raise(nameof(Duration));
+    }
 
     private string _input = "";
     public string Input { get => _input; set => Set(ref _input, value); }
@@ -64,7 +74,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
         _running = session.State == TerminalSessionState.Running;
         SendCommand = new(_ => _ = SendAsync(), _ => Running);
         StopCommand = new(_ => { try { Session?.StopAsync(); } catch { } }, _ => Running);
-        session.OutputReceived += (_, line) => Application.Current.Dispatcher.BeginInvoke(() => Append(line));
+        session.OutputReceived += (_, line) => Append(line);
         session.Exited += (_, _) => Application.Current.Dispatcher.BeginInvoke(() =>
         {
             _stoppedAt = DateTimeOffset.UtcNow;
@@ -76,15 +86,44 @@ public sealed class TerminalSessionViewModel : ObservableObject
 
     private void Append(string line)
     {
-        Output.Add(line);
-        TrimOutput();
+        lock (_outputGate)
+        {
+            // Bound both pending lines and their size even while the window is hidden for days.
+            _pendingOutput.Enqueue(line.Length > 16384 ? line[..16384] : line);
+            while (_pendingOutput.Count > MaxOutputLines) _pendingOutput.Dequeue();
+        }
+    }
+
+    public void FlushOutput()
+    {
+        string[] lines;
+        lock (_outputGate)
+        {
+            if (_pendingOutput.Count == 0) return;
+            lines = _pendingOutput.ToArray();
+            _pendingOutput.Clear();
+        }
+        if (lines.Length <= 16)
+        {
+            foreach (var line in lines) Output.Add(line);
+            while (Output.Count > MaxOutputLines) Output.RemoveAt(0);
+        }
+        else Output.ReplaceAll(Output.Concat(lines).TakeLast(MaxOutputLines));
+    }
+
+    public void ClearOutput()
+    {
+        lock (_outputGate) _pendingOutput.Clear();
+        Output.Clear();
     }
 
     /// <summary>Drops the oldest lines beyond the current cap. Also called when the cap is lowered,
     /// so an existing session shrinks to the new limit instead of waiting for more output.</summary>
     public void TrimOutput()
     {
-        while (Output.Count > MaxOutputLines) Output.RemoveAt(0);
+        lock (_outputGate)
+            while (_pendingOutput.Count > MaxOutputLines) _pendingOutput.Dequeue();
+        Output.ReplaceAll(Output.TakeLast(MaxOutputLines));
     }
 
     private readonly List<string> _history = [];
