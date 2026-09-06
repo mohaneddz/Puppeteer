@@ -3,6 +3,7 @@ bin/
 obj/
 [Dd]ebug/
 [Rr]elease/
+build-verification/
 *.user
 
 # Secrets & local config
