@@ -1,3 +1,5 @@
+![Puppeteer](screenshots/cover.avif)
+
 # Puppeteer
 
 Puppeteer is a focused Windows project hub. Point it at the folders where you keep your code, and it discovers every project underneath, groups them by what they are and what they're for, and lets you open persistent terminals in the right working directory without hunting through Explorer.
