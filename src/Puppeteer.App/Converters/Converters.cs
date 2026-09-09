@@ -277,6 +277,20 @@ public sealed class TerminalLineBrushConverter : IValueConverter
     private static Brush Brush(string key) => (Brush)Application.Current.Resources[key];
 }
 
+/// <summary>Turns an available width into a column count so the settings page flows into two columns
+/// once there is room, collapsing back to one on a narrow window. Parameter is the width at which the
+/// second column earns its place (defaults to 820).</summary>
+public sealed class ColumnCountConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var width = value is double d ? d : 0;
+        var threshold = double.TryParse(parameter?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var p) ? p : 820;
+        return width >= threshold ? 2 : 1;
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
 /// <summary>Explains the status dot. A coloured dot with no tooltip is a puzzle, not an indicator.</summary>
 public sealed class ProjectStatusTooltipConverter : IValueConverter
 {

@@ -29,5 +29,6 @@
   <conv:ProjectBreadcrumbConverter x:Key="Breadcrumb"/>
   <conv:TerminalLineBrushConverter x:Key="TerminalLine"/>
   <conv:ProjectStatusTooltipConverter x:Key="StatusTip"/>
+  <conv:ColumnCountConverter x:Key="ColumnCount"/>
  </ResourceDictionary></Application.Resources>
 </Application>

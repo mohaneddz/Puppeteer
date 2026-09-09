@@ -148,12 +148,13 @@
         <StackPanel Visibility="{Binding SelectedProject.Git, Converter={StaticResource NullVis}}">
           <TextBlock Text="Git" Style="{StaticResource SectionTitle}" Margin="0,26,0,12"/>
           <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel Orientation="Horizontal">
               <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="15" Height="15" Stroke="{StaticResource TextDimBrush}"/>
-              <TextBlock Text="{Binding SelectedProject.Git.Branch}" Margin="9,0,0,0" VerticalAlignment="Center" FontWeight="Medium"/>
+              <TextBlock Text="{Binding SelectedProject.Git.Branch, StringFormat=Branch: {0}}" Margin="9,0,0,0" VerticalAlignment="Center" FontWeight="Medium"/>
             </StackPanel>
-            <Border HorizontalAlignment="Right" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="8,3">
-              <TextBlock Text="Up to date" FontSize="11" Foreground="{StaticResource SuccessBrush}"
+            <Border Grid.Row="1" Margin="0,8,0,0" HorizontalAlignment="Left" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="8,3" Visibility="{Binding SelectedProject.Git.UpToDate, Converter={StaticResource BoolVis}}">
+              <TextBlock Text="No local changes" FontSize="11" Foreground="{StaticResource SuccessBrush}"
                          Visibility="{Binding SelectedProject.Git.UpToDate, Converter={StaticResource BoolVis}}"/>
             </Border>
           </Grid>
@@ -173,28 +174,29 @@
               <TextBlock Text="{Binding SelectedProject.Git.GitHubVisibility}" FontSize="10.5" Foreground="{StaticResource AccentBrush}"/>
             </Border>
             <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="7,0,0,0" VerticalAlignment="Center">
-              <Button Style="{StaticResource IconButton}" Width="25" Height="25" ToolTip="Copy repository remote"
+              <Button Style="{StaticResource CardLinkButton}" Padding="5" ToolTip="Copy repository remote"
                       Command="{Binding CopyRepositoryCommand}" CommandParameter="{Binding SelectedProject}">
-                <Path Style="{StaticResource IconPath}" Data="{StaticResource IconCopy}" Width="12" Height="12"/>
+                <TextBlock Text="Copy" FontSize="11"/>
               </Button>
-              <Button Style="{StaticResource IconButton}" Width="25" Height="25" ToolTip="Open repository in browser"
+              <Button Style="{StaticResource CardLinkButton}" Padding="5" ToolTip="Open repository in browser"
                       Command="{Binding OpenRepositoryCommand}" CommandParameter="{Binding SelectedProject}">
-                <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolderOpen}" Width="12" Height="12"/>
+                <TextBlock Text="Browse" FontSize="11"/>
               </Button>
             </StackPanel>
           </Grid>
           <Grid Margin="0,14,0,8">
             <TextBlock Text="Changes" Style="{StaticResource MutedText}"/>
             <TextBlock HorizontalAlignment="Right" Style="{StaticResource MutedText}">
-              <Run Text="{Binding SelectedProject.Git.ModifiedFileCount, Mode=OneWay}"/><Run Text=" modified"/>
+              <Run Text="{Binding SelectedProject.Git.ModifiedFileCount, Mode=OneWay}"/><Run Text=" local changes"/>
             </TextBlock>
           </Grid>
           <ItemsControl ItemsSource="{Binding SelectedProject.Git.Files}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
                 <Grid Margin="0,4,0,0">
-                  <TextBlock Text="{Binding Path}" Foreground="{StaticResource TextDimBrush}" FontSize="12" TextTrimming="CharacterEllipsis" Margin="0,0,26,0" ToolTip="{Binding Path}"/>
-                  <TextBlock Text="{Binding Status}" HorizontalAlignment="Right" Foreground="{StaticResource AccentBrush}" FontSize="12" FontWeight="SemiBold" FontFamily="{StaticResource MonoFont}"/>
+                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                  <TextBlock Text="{Binding Path}" Foreground="{StaticResource TextDimBrush}" FontSize="12" TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
+                  <TextBlock Grid.Row="1" Text="{Binding Description}" Margin="0,2,0,6" Foreground="{StaticResource AccentBrush}" FontSize="11"/>
                 </Grid>
               </DataTemplate>
             </ItemsControl.ItemTemplate>

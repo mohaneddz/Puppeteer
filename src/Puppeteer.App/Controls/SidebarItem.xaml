@@ -9,7 +9,8 @@
         <Setter Property="BorderBrush" Value="Transparent"/>
         <Style.Triggers>
           <Trigger Property="IsMouseOver" Value="True">
-            <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
           </Trigger>
           <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
             <Setter Property="Background" Value="{StaticResource CardBrush}"/>
@@ -30,6 +31,9 @@
           <Style TargetType="Path">
             <Setter Property="Stroke" Value="{StaticResource MutedTextBrush}"/>
             <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, ElementName=Root}" Value="True">
+                <Setter Property="Stroke" Value="{StaticResource AccentBrightBrush}"/>
+              </DataTrigger>
               <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
                 <Setter Property="Stroke" Value="{StaticResource AccentBrush}"/>
               </DataTrigger>
@@ -44,6 +48,9 @@
               <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
               <Setter Property="FontWeight" Value="Medium"/>
               <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, ElementName=Root}" Value="True">
+                  <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                </DataTrigger>
                 <DataTrigger Binding="{Binding IsActive, ElementName=Root}" Value="True">
                   <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
                   <Setter Property="FontWeight" Value="SemiBold"/>

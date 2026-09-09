@@ -30,7 +30,21 @@ public sealed record Project(
 }
 
 public sealed record CommandPreset(string Name, string Command);
-public sealed record GitFileChange(string Path, string Status);
+public sealed record GitFileChange(string Path, string Status)
+{
+    public string Description => Status switch
+    {
+        "??" => "Untracked (new file)",
+        "!!" => "Ignored",
+        "UU" or "AA" or "DD" or "AU" or "UA" or "DU" or "UD" => "Merge conflict",
+        _ when Status.Contains('R') => "Renamed",
+        _ when Status.Contains('D') => "Deleted",
+        _ when Status.Contains('A') => "Added",
+        _ when Status.Contains('M') => "Modified",
+        _ when Status.Contains('C') => "Copied",
+        _ => "Changed",
+    };
+}
 public sealed record GitStatus(
     string Branch,
     int ModifiedFileCount,
