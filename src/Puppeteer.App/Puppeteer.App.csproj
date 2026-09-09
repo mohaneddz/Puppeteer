@@ -21,6 +21,10 @@
     <UseWPF>true</UseWPF>
     <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The self-contained bundle carries the whole .NET + WPF runtime; leaving it uncompressed makes
+         a ~180 MB single file. Compressing the embedded payload roughly halves the download and the
+         installed size, at the cost of a one-time decompression on first launch. -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <!-- WPF owns the window and DPI lifecycle; WinForms is used only for NotifyIcon. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <!-- Only for the notification-area icon; WPF has no tray primitive of its own. -->
