@@ -8,18 +8,36 @@ namespace Puppeteer.App.ViewModels;
 /// never writes, so opening the wrong one costs nothing.</summary>
 public sealed partial class MainViewModel
 {
-    public const string ReaderStateDoc = "State doc";
+    public const string ReaderNotes = ProjectDocSections.Notes;
     public const string ReaderReadme = "README";
     public const string ReaderIndex = "Index";
 
     public ObservableCollection<string> ReaderTabs { get; } = [];
+    public IReadOnlyList<string> ReaderNoteSections => ProjectDocSections.Standard;
 
     private bool _readerOpen;
     public bool ReaderOpen { get => _readerOpen; set => Set(ref _readerOpen, value); }
 
     private Project? _readerProject;
-    private string _readerTab = ReaderStateDoc;
-    public string ReaderTab { get => _readerTab; set { if (Set(ref _readerTab, value)) LoadReader(); } }
+    private string _readerTab = ReaderNotes;
+    public string ReaderTab
+    {
+        get => _readerTab;
+        set
+        {
+            if (!Set(ref _readerTab, value)) return;
+            Raise(nameof(IsReaderNotes));
+            LoadReader();
+        }
+    }
+    public bool IsReaderNotes => ReaderTab == ReaderNotes;
+
+    private string _readerNoteSection = ProjectDocSections.Summary;
+    public string ReaderNoteSection
+    {
+        get => _readerNoteSection;
+        set { if (Set(ref _readerNoteSection, value)) LoadReader(); }
+    }
 
     private string _readerText = "";
     public string ReaderText { get => _readerText; private set => Set(ref _readerText, value); }
@@ -40,6 +58,7 @@ public sealed partial class MainViewModel
     public RelayCommand OpenIndexReaderCommand { get; private set; } = null!;
     public RelayCommand CloseReaderCommand { get; private set; } = null!;
     public RelayCommand SetReaderTabCommand { get; private set; } = null!;
+    public RelayCommand SetReaderNoteSectionCommand { get; private set; } = null!;
     public RelayCommand OpenReaderFileCommand { get; private set; } = null!;
 
     private void InitializeReader()
@@ -48,6 +67,7 @@ public sealed partial class MainViewModel
         OpenIndexReaderCommand = new(_ => OpenReader(null, ReaderIndex), _ => ResolvedIndexFile.Length > 0);
         CloseReaderCommand = new(_ => ReaderOpen = false);
         SetReaderTabCommand = new(p => { if (p?.ToString() is { Length: > 0 } tab) ReaderTab = tab; });
+        SetReaderNoteSectionCommand = new(p => { if (p?.ToString() is { Length: > 0 } section) ReaderNoteSection = section; });
         OpenReaderFileCommand = new(_ => OpenReaderFile(), _ => HasReaderFile);
     }
 
@@ -57,8 +77,9 @@ public sealed partial class MainViewModel
         RebuildReaderTabs();
         // Land on whatever this project actually has, rather than an empty tab.
         _readerTab = tab is { Length: > 0 } wanted && ReaderTabs.Contains(wanted) ? wanted
-            : ReaderTabs.FirstOrDefault() ?? ReaderStateDoc;
+            : ReaderTabs.FirstOrDefault() ?? ReaderNotes;
         Raise(nameof(ReaderTab));
+        Raise(nameof(IsReaderNotes));
         Raise(nameof(ReaderTitle));
         LoadReader();
         ReaderOpen = true;
@@ -70,11 +91,11 @@ public sealed partial class MainViewModel
         var tabs = new List<string>();
         if (_readerProject is { } project)
         {
-            if (_docMatches.ContainsKey(project.Id)) tabs.Add(ReaderStateDoc);
+            tabs.Add(ReaderNotes);
             if (ReadmeOf(project) is not null) tabs.Add(ReaderReadme);
         }
         if (ResolvedIndexFile.Length > 0) tabs.Add(ReaderIndex);
-        if (tabs.Count == 0) tabs.Add(ReaderStateDoc);
+        if (tabs.Count == 0) tabs.Add(ReaderNotes);
 
         if (ReaderTabs.SequenceEqual(tabs)) return;
         ReaderTabs.Clear();
@@ -90,7 +111,11 @@ public sealed partial class MainViewModel
             _ => _readerProject is { } project && _docMatches.TryGetValue(project.Id, out var match) ? match.Doc.FilePath : null,
         };
         ReaderPath = path ?? "";
-        ReaderText = path is null ? Missing() : Read(path);
+        ReaderText = path is null
+            ? Missing()
+            : IsReaderNotes && _readerProject is { } selected && _docMatches.TryGetValue(selected.Id, out var doc)
+                ? ReadSection(doc.Doc, ReaderNoteSection)
+                : Read(path);
         Raise(nameof(ReaderSubtitle));
     }
 
@@ -100,6 +125,11 @@ public sealed partial class MainViewModel
         ReaderIndex => "*No index file is connected. Set one in Settings → Project docs.*",
         _ => "*No state doc describes this project yet.*",
     };
+
+    private static string ReadSection(ProjectDoc doc, string section) =>
+        doc.Section(section) is { Length: > 0 } text
+            ? text
+            : $"*No {section.ToLowerInvariant()} has been written yet.*";
 
     private static string Read(string path)
     {
@@ -121,7 +151,12 @@ public sealed partial class MainViewModel
     {
         if (!ReaderOpen) return;
         RebuildReaderTabs();
-        if (!ReaderTabs.Contains(_readerTab)) { _readerTab = ReaderTabs.FirstOrDefault() ?? ReaderStateDoc; Raise(nameof(ReaderTab)); }
+        if (!ReaderTabs.Contains(_readerTab))
+        {
+            _readerTab = ReaderTabs.FirstOrDefault() ?? ReaderNotes;
+            Raise(nameof(ReaderTab));
+            Raise(nameof(IsReaderNotes));
+        }
         LoadReader();
     }
 }
