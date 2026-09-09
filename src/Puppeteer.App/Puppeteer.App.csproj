@@ -16,6 +16,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF owns the window and DPI lifecycle; WinForms is used only for NotifyIcon. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
     <!-- Only for the notification-area icon; WPF has no tray primitive of its own. -->
     <UseWindowsForms>true</UseWindowsForms>
     <ApplicationDefaultFont>Segoe UI</ApplicationDefaultFont>
