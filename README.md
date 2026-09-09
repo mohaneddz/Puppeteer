@@ -64,7 +64,7 @@ Configure scan roots, startup and tray behavior, terminals, appearance, tools, d
 
 ## Install the Windows release
 
-Download `Puppeteer-0.7.2-win-x64-setup.msi` and run it. The installer requests administrator
+Download `Puppeteer-0.8.0-win-x64-setup.msi` and run it. The installer requests administrator
 permission because it installs Puppeteer for all users under `C:\Program Files\Puppeteer`. It adds
 Puppeteer to the Start Menu and Desktop, and includes its own .NET runtime, so no separate .NET
 installation is required.
