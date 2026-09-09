@@ -127,6 +127,7 @@ public sealed partial class MainViewModel
         SelectDocEntryCommand = new(p => { if (p is ProjectDocEntry entry) SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project; });
 
         InitializeReader();
+        InitializeDocsTree();
         PropertyChanged += (_, e) => { if (e.PropertyName == nameof(SelectedProject)) { LoadSelectedDoc(); _ = LoadHistoryAsync(); } };
         DocEntries.CollectionChanged += (_, _) => Raise(nameof(DocEntryCount));
     }
@@ -222,6 +223,7 @@ public sealed partial class MainViewModel
             LoadIndex();
             MatchDocs();
             RebuildDocEntries();
+            RebuildDocsTree();
             Raise(nameof(DocsSummary)); Raise(nameof(HasIndex)); Raise(nameof(IndexSummary));
             // The inspector is filled in before the vault has finished loading on startup, so the
             // selected project has to be looked at again once the docs are actually here.
@@ -400,6 +402,9 @@ public sealed partial class MainViewModel
 
         bool Keep(ProjectDocEntry entry)
         {
+            // A docs-folder filter shows the docs that live under it, so undocumented projects drop out.
+            if (_selectedDocsFolder is { } docsFolder && (entry.Doc is null || !IsWithinFolder(entry.Doc.FilePath, docsFolder.Path)))
+                return false;
             var passesFilter = _docFilter switch
             {
                 "Undocumented" => !entry.HasDoc,
@@ -800,6 +805,8 @@ public sealed partial class MainViewModel
         Raise(nameof(DocView));
         _docsAutoSnapshot = await _repository.GetSettingAsync("DocsAutoSnapshot") != "0";
         Raise(nameof(DocsAutoSnapshot));
+        _folderPane = await _repository.GetSettingAsync("FolderPane") == DocsPane ? DocsPane : ProjectsPane;
+        Raise(nameof(FolderPane)); Raise(nameof(IsProjectsPane)); Raise(nameof(IsDocsPane));
         OpenVault();
     }
 }

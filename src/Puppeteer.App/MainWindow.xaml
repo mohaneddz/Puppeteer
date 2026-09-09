@@ -299,8 +299,34 @@
                 <RowDefinition Height="*"/>
               </Grid.RowDefinitions>
               <Grid Margin="5,0,5,6">
-                <TextBlock Text="FOLDERS" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
-                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal">
+                  <Button Command="{Binding SetFolderPaneCommand}" CommandParameter="Projects" Style="{StaticResource CardLinkButton}" Padding="2,1" Margin="0,0,12,0" ToolTip="Show project folders">
+                    <TextBlock Text="PROJECTS" FontSize="10.5" FontWeight="SemiBold">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsProjectsPane}" Value="True"><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/></DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Button>
+                  <Button Command="{Binding SetFolderPaneCommand}" CommandParameter="Documentation" Style="{StaticResource CardLinkButton}" Padding="2,1" ToolTip="Show documentation folders">
+                    <TextBlock Text="DOCS" FontSize="10.5" FontWeight="SemiBold">
+                      <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                          <Setter Property="Foreground" Value="{StaticResource FaintBrush}"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsDocsPane}" Value="True"><Setter Property="Foreground" Value="{StaticResource AccentBrush}"/></DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </TextBlock.Style>
+                    </TextBlock>
+                  </Button>
+                </StackPanel>
+                <!-- Projects-pane actions -->
+                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Visibility="{Binding IsProjectsPane, Converter={StaticResource BoolVis}}">
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" Margin="0,0,4,0"
                           ToolTip="Add root folder" AutomationProperties.Name="Add root folder" Command="{Binding AddRootCommand}">
                     <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="13" Height="13"/>
@@ -324,8 +350,21 @@
                           Command="{Binding ClearFolderCommand}"
                           Visibility="{Binding FolderFilterActive, Converter={StaticResource BoolVis}}"/>
                 </StackPanel>
+                <!-- Docs-pane actions -->
+                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Visibility="{Binding IsDocsPane, Converter={StaticResource BoolVis}}">
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" Margin="0,0,4,0"
+                          ToolTip="Add docs folder" AutomationProperties.Name="Add docs folder" Command="{Binding AddDocsFolderCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="13" Height="13"/>
+                  </Button>
+                  <Button Style="{StaticResource CardLinkButton}" Content="Clear" FontSize="11"
+                          Command="{Binding ClearDocsFolderFilterCommand}"
+                          Visibility="{Binding DocsFolderFilterActive, Converter={StaticResource BoolVis}}"/>
+                </StackPanel>
               </Grid>
+
+              <!-- Project folders -->
               <TreeView Grid.Row="1" ItemsSource="{Binding FolderTree}" Background="Transparent" BorderThickness="0"
+                        Visibility="{Binding IsProjectsPane, Converter={StaticResource BoolVis}}"
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                         VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling">
                 <TreeView.ItemContainerStyle>
@@ -364,6 +403,43 @@
                   </HierarchicalDataTemplate>
                 </TreeView.ItemTemplate>
               </TreeView>
+
+              <!-- Documentation folders -->
+              <Grid Grid.Row="1" Visibility="{Binding IsDocsPane, Converter={StaticResource BoolVis}}">
+                <TreeView ItemsSource="{Binding DocsFolderTree}" Background="Transparent" BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                          Visibility="{Binding HasDocsFolders, Converter={StaticResource BoolVis}}">
+                  <TreeView.ItemContainerStyle>
+                    <Style TargetType="TreeViewItem">
+                      <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
+                      <Setter Property="Foreground" Value="{StaticResource TextDimBrush}"/>
+                    </Style>
+                  </TreeView.ItemContainerStyle>
+                  <TreeView.ItemTemplate>
+                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
+                      <Button HorizontalContentAlignment="Left" Padding="3,3" ToolTip="{Binding Path}"
+                              Command="{Binding DataContext.SelectDocsFolderCommand, RelativeSource={RelativeSource AncestorType=TreeView}}"
+                              CommandParameter="{Binding}" Style="{StaticResource CardLinkButton}">
+                        <Button.Background>
+                          <MultiBinding Converter="{StaticResource ActiveFolder}">
+                            <Binding Path="Path"/>
+                            <Binding Path="DataContext.SelectedDocsFolder" RelativeSource="{RelativeSource AncestorType=TreeView}"/>
+                          </MultiBinding>
+                        </Button.Background>
+                        <StackPanel Orientation="Horizontal">
+                          <Path Style="{StaticResource IconPath}" Data="{StaticResource IconDoc}" Width="13" Height="13" Stroke="{StaticResource MutedTextBrush}" VerticalAlignment="Center"/>
+                          <TextBlock Text="{Binding Name}" Margin="7,0,0,0" VerticalAlignment="Center" FontSize="12.5" TextTrimming="CharacterEllipsis"/>
+                          <TextBlock Text="{Binding ProjectCount}" Margin="6,0,0,0" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource FaintBrush}"/>
+                        </StackPanel>
+                      </Button>
+                    </HierarchicalDataTemplate>
+                  </TreeView.ItemTemplate>
+                </TreeView>
+                <TextBlock Text="No docs folders yet. Use + to add one." Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap"
+                           Margin="5,4,5,0" VerticalAlignment="Top"
+                           Visibility="{Binding HasDocsFolders, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+              </Grid>
             </Grid>
             <!-- Bottom running pill -->
             <Button Grid.Row="2" Margin="16,10,16,16" Padding="12,9" HorizontalContentAlignment="Stretch"
