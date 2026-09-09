@@ -1,5 +1,5 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Puppeteer" Manufacturer="Mohaned" Version="0.7.1" UpgradeCode="{F572B72C-7438-4C4E-B90C-E98FBCF1AE27}" Scope="perMachine">
+  <Package Name="Puppeteer" Manufacturer="Mohaned" Version="0.7.2" UpgradeCode="{F572B72C-7438-4C4E-B90C-E98FBCF1AE27}" Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version of Puppeteer is already installed." />
     <!-- The self-contained single-file executable is already compressed; avoiding a second pass
          keeps installer creation practical on a local release machine. -->
