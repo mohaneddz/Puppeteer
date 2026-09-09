@@ -4,6 +4,7 @@ obj/
 [Dd]ebug/
 [Rr]elease/
 build-verification/
+design/
 *.user
 
 # Secrets & local config
