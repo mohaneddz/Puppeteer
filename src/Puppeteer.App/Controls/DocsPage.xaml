@@ -5,7 +5,6 @@
              xmlns:conv="clr-namespace:Puppeteer.App.Converters">
   <UserControl.Resources>
     <conv:DocStatusBrushConverter x:Key="DocStatusBrush"/>
-    <conv:DriftVisibilityConverter x:Key="DriftVis"/>
     <!-- The window's BareList lives in Window.Resources, which a separately parsed UserControl
          cannot reach with StaticResource; the list needs its own. -->
     <Style x:Key="PlainList" TargetType="ListBox">
@@ -156,14 +155,6 @@
                           </Border>
                           <TextBlock Text="{Binding LinkNote}" Margin="10,0,0,0" VerticalAlignment="Center" FontSize="11"
                                      Foreground="{StaticResource FaintBrush}"/>
-                          <!-- Drift lives in this hover icon, not a line of text under the summary. -->
-                          <Border Margin="10,0,0,0" Padding="2" VerticalAlignment="Center" Background="Transparent"
-                                  ToolTip="{Binding DriftDetail}" ToolTipService.ShowDuration="20000"
-                                  Visibility="{Binding NeedsWriteup, Converter={StaticResource DriftVis}}">
-                            <Path Data="{StaticResource IconWarning}" Width="14" Height="14" Stretch="Uniform"
-                                  Stroke="{StaticResource AccentBrightBrush}" StrokeThickness="1.6"
-                                  StrokeLineJoin="Round" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                          </Border>
                         </StackPanel>
                         <TextBlock Text="{Binding Summary}" Style="{StaticResource MutedText}" TextTrimming="CharacterEllipsis" Margin="0,5,0,0"/>
                         <StackPanel Orientation="Horizontal" Margin="0,6,0,0" Visibility="{Binding HasNextStep, Converter={StaticResource BoolVis}}">

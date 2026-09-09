@@ -19,7 +19,6 @@ public sealed partial class MainViewModel
     private readonly Dictionary<Guid, DocMatch> _docMatches = [];
     private readonly Dictionary<Guid, DocMatch> _docSuggestions = [];
     private readonly Dictionary<Guid, ProjectDocLink> _docLinks = [];
-    private readonly Dictionary<Guid, DocDriftReport> _docDrift = [];
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
     private ProjectIndexLookup? _index;
     private readonly Dictionary<Guid, ProjectIndexEntry> _indexRows = [];
@@ -32,7 +31,7 @@ public sealed partial class MainViewModel
     private DispatcherTimer? _vaultDebounce;
 
     public BatchCollection<ProjectDocEntry> DocEntries { get; } = [];
-    public IReadOnlyList<string> DocFilters { get; } = ["All", "Needs writeup", "Undocumented", "Documented", "Active", "Paused", "Shipped", "Archived"];
+    public IReadOnlyList<string> DocFilters { get; } = ["All", "Undocumented", "Documented", "Active", "Paused", "Shipped", "Archived"];
 
     private string _docsFolder = "";
     public string DocsFolder
@@ -82,7 +81,7 @@ public sealed partial class MainViewModel
     public bool HasVault => _vault?.VaultPath is not null;
     public string DocsSummary => !HasVault
         ? "No docs folder connected."
-        : $"{_docs.Count} doc{(_docs.Count == 1 ? "" : "s")} · {_docMatches.Count} linked · {_readmes.Count} with a README · {_docDrift.Values.Count(d => d.NeedsWriteup)} need a writeup";
+        : $"{_docs.Count} doc{(_docs.Count == 1 ? "" : "s")} · {_docMatches.Count} linked · {_readmes.Count} with a README";
 
     public RelayCommand ChooseDocsFolderCommand { get; private set; } = null!;
     public RelayCommand ClearDocsFolderCommand { get; private set; } = null!;
@@ -289,13 +288,6 @@ public sealed partial class MainViewModel
             _docMatches[project.Id] = new(doc, DocMatchConfidence.Index, $"the index links “{row.Name}” to this doc");
             _docSuggestions.Remove(project.Id);
         }
-
-        _docDrift.Clear();
-        foreach (var project in _allProjects)
-        {
-            var match = _docMatches.GetValueOrDefault(project.Id);
-            _docDrift[project.Id] = ProjectDocDrift.Compare(project, match?.Doc, match?.Confidence ?? DocMatchConfidence.ExactPath);
-        }
     }
 
     private void RebuildDocEntries()
@@ -310,11 +302,9 @@ public sealed partial class MainViewModel
                 _docSuggestions.GetValueOrDefault(project.Id)?.Doc,
                 _indexRows.GetValueOrDefault(project.Id),
                 _readmes.GetValueOrDefault(project.Id),
-                _docDrift.GetValueOrDefault(project.Id) ?? new(project.Id, DocDrift.NoDoc, ["No state doc in the vault"]),
                 _snapshots.GetValueOrDefault(project.Id)))
             .Where(Keep)
-            .OrderByDescending(e => e.NeedsWriteup)
-            .ThenByDescending(e => e.DriftCount)
+            .OrderByDescending(e => e.HasDoc)
             .ThenBy(e => e.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
@@ -325,7 +315,6 @@ public sealed partial class MainViewModel
         {
             var passesFilter = _docFilter switch
             {
-                "Needs writeup" => entry.NeedsWriteup,
                 "Undocumented" => !entry.HasDoc,
                 "Documented" => entry.HasDoc,
                 "All" => true,
@@ -351,9 +340,9 @@ public sealed partial class MainViewModel
     public bool HasSelectedDoc => _selectedDoc is not null;
     public string SelectedDocName => _selectedDoc is null ? "" : Path.GetFileName(_selectedDoc.FilePath);
 
-    public DocDriftReport? SelectedDrift => SelectedProject is { } project ? _docDrift.GetValueOrDefault(project.Id) : null;
-    public string SelectedDriftSummary => SelectedDrift is { Reasons.Count: > 0 } report ? string.Join("\n", report.Reasons.Select(r => "· " + r)) : "";
-    public bool SelectedHasDrift => SelectedDrift is { Any: true };
+    /// <summary>Whether the selected project has a linked doc whose facts (Location, Stack, Last
+    /// activity) can be rewritten from the repo — the doc must describe this exact folder.</summary>
+    public bool CanSyncSelectedDocFacts => DescribesItsOwnFolder(SelectedProject);
     public string SelectedLinkNote => DocEntryFor(SelectedProject)?.LinkNote ?? "";
 
     /// <summary>The editor is folded away until asked for: the inspector is for looking at a project,
@@ -442,7 +431,7 @@ public sealed partial class MainViewModel
         _docNotes = doc?.Section(ProjectDocSections.Notes) ?? "";
         Raise(nameof(SelectedProjectName));
         foreach (var name in new[] { nameof(DocStatusValue), nameof(DocSummary), nameof(DocWorks), nameof(DocBroken), nameof(DocNext), nameof(DocNotes),
-                                     nameof(SelectedDrift), nameof(SelectedDriftSummary), nameof(SelectedHasDrift), nameof(SelectedLinkNote),
+                                     nameof(CanSyncSelectedDocFacts), nameof(SelectedLinkNote),
                                      nameof(SelectedSuggestionName), nameof(HasSelectedSuggestion) })
             Raise(name);
         DocDirty = false;
@@ -505,7 +494,7 @@ public sealed partial class MainViewModel
         if (SelectedDoc?.FilePath.Equals(saved.FilePath, StringComparison.OrdinalIgnoreCase) == true)
         {
             SelectedDoc = saved;
-            Raise(nameof(SelectedDrift)); Raise(nameof(SelectedDriftSummary)); Raise(nameof(SelectedHasDrift));
+            Raise(nameof(CanSyncSelectedDocFacts));
         }
     }
 

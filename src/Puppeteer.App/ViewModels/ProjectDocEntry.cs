@@ -2,13 +2,11 @@ using Puppeteer.Core;
 
 namespace Puppeteer.App.ViewModels;
 
-/// <summary>One row of the Docs page: a project, the doc that describes it (if any), and how far the
-/// two have drifted apart.</summary>
-public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, ProjectIndexEntry? indexRow, string? readmePath, DocDriftReport drift, ProjectStateSnapshot? snapshot)
+/// <summary>One row of the Docs page: a project and the doc that describes it, if any.</summary>
+public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchConfidence confidence, bool manual, ProjectDoc? suggestion, ProjectIndexEntry? indexRow, string? readmePath, ProjectStateSnapshot? snapshot)
 {
     public Project Project { get; } = project;
     public ProjectDoc? Doc { get; } = doc;
-    public DocDriftReport Drift { get; } = drift;
     public ProjectStateSnapshot? Snapshot { get; } = snapshot;
 
     public string Name => Project.Name;
@@ -60,15 +58,6 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
 
     public string NextStep => Doc?.Section(ProjectDocSections.Next) is { Length: > 0 } next ? FirstLine(next) : "";
     public bool HasNextStep => NextStep.Length > 0;
-
-    public string DriftSummary => Drift.Reasons.Count == 0 ? "In step with the repo" : string.Join(" · ", Drift.Reasons);
-    /// <summary>The drift reasons one per line, for the card's hover tooltip. Titled so a glance at the
-    /// warning icon reads as advice rather than an error.</summary>
-    public string DriftDetail => Drift.Reasons.Count == 0
-        ? "In step with the repo"
-        : "This doc has drifted from the repo:\n" + string.Join("\n", Drift.Reasons.Select(r => "· " + r));
-    public bool NeedsWriteup => Drift.NeedsWriteup;
-    public int DriftCount => Drift.Reasons.Count;
 
     public string Activity => Snapshot?.LastCommitAt is { } committed
         ? $"last commit {Ago(committed)}"

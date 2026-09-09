@@ -64,19 +64,15 @@
         </StackPanel>
       </Button>
 
-      <!-- Drift -->
-      <Border Margin="0,12,0,0" Padding="12,10" CornerRadius="9" Background="{StaticResource ChipBrush}"
-              BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
-              Visibility="{Binding SelectedHasDrift, Converter={StaticResource BoolVis}}">
-        <StackPanel>
-          <TextBlock Text="Out of step" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource AccentBrightBrush}"/>
-          <TextBlock Text="{Binding SelectedDriftSummary}" Style="{StaticResource MutedText}" FontSize="11.5" TextWrapping="Wrap" Margin="0,5,0,0"/>
-          <Button Command="{Binding SyncDocFactsCommand}" Margin="0,10,0,0" Padding="10,7" HorizontalAlignment="Left"
-                  ToolTip="Rewrite Location, Stack and Last activity from the repo. Your prose is left alone.">
-            <TextBlock Text="Update the facts" FontSize="12"/>
-          </Button>
+      <!-- Sync the doc's factual header (Location, Stack, Last activity) with the repo on demand. -->
+      <Button Command="{Binding SyncDocFactsCommand}" Margin="0,12,0,0" Padding="10,7" HorizontalAlignment="Left"
+              Visibility="{Binding CanSyncSelectedDocFacts, Converter={StaticResource BoolVis}}"
+              ToolTip="Rewrite Location, Stack and Last activity from the repo. Your prose is left alone.">
+        <StackPanel Orientation="Horizontal">
+          <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="13" Height="13"/>
+          <TextBlock Text="Update the facts" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="12"/>
         </StackPanel>
-      </Border>
+      </Button>
     </StackPanel>
 
     <!-- History -->

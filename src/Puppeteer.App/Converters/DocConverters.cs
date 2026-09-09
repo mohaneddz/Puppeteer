@@ -23,19 +23,6 @@ public sealed class DocStatusBrushConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
-/// <summary>Shows an element only while a doc needs a writeup — drift the doc itself can fix, as
-/// opposed to the repo merely being dirty. Pass <c>Inverse</c> to flip it.</summary>
-public sealed class DriftVisibilityConverter : IValueConverter
-{
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-    {
-        var needs = value is true;
-        if (string.Equals(parameter as string, "Inverse", StringComparison.OrdinalIgnoreCase)) needs = !needs;
-        return needs ? Visibility.Visible : Visibility.Collapsed;
-    }
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
-}
-
 /// <summary>Formats a captured snapshot as one scannable line for the history list.</summary>
 public sealed class SnapshotLineConverter : IValueConverter
 {

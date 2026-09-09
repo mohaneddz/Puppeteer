@@ -31,22 +31,6 @@ public class AncestorDocTests
     }
 
     [Fact]
-    public void DoesNotCallAParentDocsLocationStale()
-    {
-        var report = ProjectDocDrift.Compare(Child(), ParentDoc(), DocMatchConfidence.Ancestor);
-        Assert.False(report.Drift.HasFlag(DocDrift.StaleLocation));
-        Assert.False(report.Drift.HasFlag(DocDrift.StaleStack));
-        Assert.False(report.NeedsWriteup);
-    }
-
-    [Fact]
-    public void StillCallsItStaleWhenTheDocIsMeantToBeThisFolder()
-    {
-        var report = ProjectDocDrift.Compare(Child(), ParentDoc(), DocMatchConfidence.FolderName);
-        Assert.True(report.Drift.HasFlag(DocDrift.StaleLocation));
-    }
-
-    [Fact]
     public void FindsTheParentDocForARepoInsideIt()
     {
         var match = ProjectDocMatcher.Best(Child(), [ParentDoc()])!;
