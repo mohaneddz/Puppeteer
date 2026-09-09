@@ -13,6 +13,16 @@ public partial class App : Application
 {
     private IHost? _host;
 
+    public App()
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, args) => ReportFatalError(args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+        {
+            ReportFatalError(args.Exception);
+            args.SetObserved();
+        };
+    }
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -46,19 +56,34 @@ public partial class App : Application
         }
         catch (Exception exception)
         {
-            Fail("Puppeteer couldn't start", exception);
+            ReportFatalError(exception);
             Shutdown();
         }
     }
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        Fail("Something went wrong", e.Exception);
+        ReportFatalError(e.Exception);
         e.Handled = true;
     }
 
-    private static void Fail(string title, Exception exception) =>
-        MessageBox.Show(exception.Message, title, MessageBoxButton.OK, MessageBoxImage.Error);
+    private static void ReportFatalError(Exception? exception)
+    {
+        var details = exception?.ToString() ?? "An unknown error occurred.";
+        var logPath = Path.Combine(MainViewModel.DataFolder, "startup-error.log");
+        try
+        {
+            Directory.CreateDirectory(MainViewModel.DataFolder);
+            File.AppendAllText(logPath, $"[{DateTimeOffset.Now:O}]\r\n{details}\r\n\r\n");
+        }
+        catch
+        {
+        }
+
+        var message = $"Puppeteer could not start.\r\n\r\n{exception?.Message ?? "An unknown error occurred."}\r\n\r\nA diagnostic report was saved to:\r\n{logPath}";
+        try { MessageBox.Show(message, "Puppeteer startup error", MessageBoxButton.OK, MessageBoxImage.Error); }
+        catch { }
+    }
 
     protected override async void OnExit(ExitEventArgs e)
     {

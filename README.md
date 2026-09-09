@@ -49,6 +49,16 @@ Configure scan roots, startup and tray behavior, terminals, appearance, tools, d
 - **Windows 10 or Windows 11**
 - **.NET 10 SDK** to build and run from source
 
+## Install the Windows release
+
+Download `Puppeteer-0.7.1-win-x64-setup.msi` and run it. The installer requests administrator
+permission because it installs Puppeteer for all users under `C:\Program Files\Puppeteer`. It adds
+Puppeteer to the Start Menu and Desktop, and includes its own .NET runtime, so no separate .NET
+installation is required.
+
+If startup fails, Puppeteer displays the error and writes the full diagnostic details to
+`%LOCALAPPDATA%\Puppeteer\startup-error.log`.
+
 ## Run from source
 
 ```bat

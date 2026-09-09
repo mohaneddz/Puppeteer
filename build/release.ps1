@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidatePattern('^\d+\.\d+\.\d+$')]
-    [string]$Version = '0.7.0'
+    [string]$Version = '0.7.1'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -23,7 +23,8 @@ $zip = Join-Path $artifacts "Puppeteer-$Version-win-x64.zip"
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
 
 $msi = Join-Path $artifacts "Puppeteer-$Version-win-x64-setup.msi"
-wix --acceptEula wix7 build (Join-Path $root 'installer\Puppeteer.wxs') -arch x64 -d "PublishDir=$publish" -out $msi -pdbtype none
+$icon = Join-Path $root 'src\Puppeteer.App\Assets\icon.png'
+wix --acceptEula wix7 build (Join-Path $root 'installer\Puppeteer.wxs') -arch x64 -d "PublishDir=$publish" -d "IconFile=$icon" -out $msi -pdbtype none
 if ($LASTEXITCODE) { throw 'Installer build failed.' }
 
 $hashes = Join-Path $artifacts 'SHA256SUMS.txt'

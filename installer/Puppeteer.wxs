@@ -1,9 +1,10 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Puppeteer" Manufacturer="Mohaned" Version="0.7.0" UpgradeCode="{F572B72C-7438-4C4E-B90C-E98FBCF1AE27}" Scope="perMachine">
+  <Package Name="Puppeteer" Manufacturer="Mohaned" Version="0.7.1" UpgradeCode="{F572B72C-7438-4C4E-B90C-E98FBCF1AE27}" Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version of Puppeteer is already installed." />
     <!-- The self-contained single-file executable is already compressed; avoiding a second pass
          keeps installer creation practical on a local release machine. -->
     <MediaTemplate EmbedCab="yes" CompressionLevel="none" />
+    <Icon Id="PuppeteerIcon" SourceFile="$(var.IconFile)" />
 
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="Puppeteer">
@@ -15,6 +16,25 @@
 
     <Feature Id="MainFeature" Title="Puppeteer" Level="1">
       <ComponentRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="DesktopShortcut" />
     </Feature>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="Puppeteer">
+        <Component Id="StartMenuShortcut" Guid="*">
+          <Shortcut Id="ApplicationStartMenuShortcut" Name="Puppeteer" Target="[INSTALLFOLDER]Puppeteer.App.exe" WorkingDirectory="INSTALLFOLDER" Icon="PuppeteerIcon" />
+          <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+          <RegistryValue Root="HKLM" Key="Software\Puppeteer" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder">
+      <Component Id="DesktopShortcut" Guid="*">
+        <Shortcut Id="ApplicationDesktopShortcut" Name="Puppeteer" Target="[INSTALLFOLDER]Puppeteer.App.exe" WorkingDirectory="INSTALLFOLDER" Icon="PuppeteerIcon" />
+        <RegistryValue Root="HKLM" Key="Software\Puppeteer" Name="DesktopShortcut" Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </StandardDirectory>
   </Package>
 </Wix>
