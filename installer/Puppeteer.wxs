@@ -1,0 +1,20 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Puppeteer" Manufacturer="Mohaned" Version="0.7.0" UpgradeCode="{F572B72C-7438-4C4E-B90C-E98FBCF1AE27}" Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Puppeteer is already installed." />
+    <!-- The self-contained single-file executable is already compressed; avoiding a second pass
+         keeps installer creation practical on a local release machine. -->
+    <MediaTemplate EmbedCab="yes" CompressionLevel="none" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="Puppeteer">
+        <Component Id="ApplicationFiles" Guid="*">
+          <File Id="PuppeteerExecutable" Source="$(var.PublishDir)\Puppeteer.App.exe" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="Puppeteer" Level="1">
+      <ComponentRef Id="ApplicationFiles" />
+    </Feature>
+  </Package>
+</Wix>
