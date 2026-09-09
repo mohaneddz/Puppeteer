@@ -15,33 +15,53 @@ public sealed class ProjectDocVault : IProjectDocVault
     /// <summary>Index and readme files map a vault, they do not describe one project.</summary>
     private static readonly HashSet<string> SkippedFiles = new(StringComparer.OrdinalIgnoreCase) { "projects", "index", "readme" };
 
-    private FileSystemWatcher? _watcher;
-    public string? VaultPath { get; private set; }
+    private readonly List<FileSystemWatcher> _watchers = [];
+    public IReadOnlyList<string> VaultPaths { get; private set; } = [];
+    public string? VaultPath => VaultPaths.Count > 0 ? VaultPaths[0] : null;
     public event EventHandler<string>? Changed;
 
-    public void Open(string? vaultPath)
+    public void Open(IReadOnlyList<string> vaultPaths)
     {
-        _watcher?.Dispose();
-        _watcher = null;
-        VaultPath = string.IsNullOrWhiteSpace(vaultPath) || !Directory.Exists(vaultPath) ? null : Path.GetFullPath(vaultPath);
-        if (VaultPath is null) return;
-        _watcher = new FileSystemWatcher(VaultPath, "*.md") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size };
-        FileSystemEventHandler changed = (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
-        _watcher.Created += changed; _watcher.Deleted += changed; _watcher.Changed += changed;
-        _watcher.Renamed += (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
-        _watcher.EnableRaisingEvents = true;
+        foreach (var watcher in _watchers) watcher.Dispose();
+        _watchers.Clear();
+        // Keep only real, distinct folders, and drop any that sits inside another so its docs are not
+        // loaded and watched twice.
+        var folders = (vaultPaths ?? [])
+            .Where(p => !string.IsNullOrWhiteSpace(p) && Directory.Exists(p))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        VaultPaths = folders
+            .Where(path => !folders.Any(other => !ReferenceEquals(other, path) && IsUnder(path, other)))
+            .ToArray();
+        foreach (var path in VaultPaths)
+        {
+            var watcher = new FileSystemWatcher(path, "*.md") { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size };
+            FileSystemEventHandler changed = (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
+            watcher.Created += changed; watcher.Deleted += changed; watcher.Changed += changed;
+            watcher.Renamed += (_, e) => { if (IsDoc(e.FullPath)) Changed?.Invoke(this, e.FullPath); };
+            watcher.EnableRaisingEvents = true;
+            _watchers.Add(watcher);
+        }
+    }
+
+    private static bool IsUnder(string path, string ancestor)
+    {
+        var relative = Path.GetRelativePath(ancestor, path);
+        return relative != "." && !relative.StartsWith("..", StringComparison.Ordinal) && !Path.IsPathRooted(relative);
     }
 
     public Task<IReadOnlyList<ProjectDoc>> LoadAsync(CancellationToken cancellationToken = default) => Task.Run(() =>
     {
         var docs = new List<ProjectDoc>();
-        if (VaultPath is null) return (IReadOnlyList<ProjectDoc>)docs;
-        foreach (var file in EnumerateDocs(VaultPath, cancellationToken))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (ReadDoc(file) is { } doc) docs.Add(doc);
-        }
-        return docs;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var vault in VaultPaths)
+            foreach (var file in EnumerateDocs(vault, cancellationToken))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (seen.Add(file) && ReadDoc(file) is { } doc) docs.Add(doc);
+            }
+        return (IReadOnlyList<ProjectDoc>)docs;
     }, cancellationToken);
 
     public Task<ProjectDoc?> ReadAsync(string docPath, CancellationToken cancellationToken = default) =>
@@ -94,7 +114,7 @@ public sealed class ProjectDocVault : IProjectDocVault
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return []; }
     }
 
-    public void Dispose() { _watcher?.Dispose(); _watcher = null; }
+    public void Dispose() { foreach (var watcher in _watchers) watcher.Dispose(); _watchers.Clear(); }
 
     /// <summary>A watcher filtered to "*.md" still reports Windows' replace temporaries, which are
     /// named after the file they are replacing — Hive.md~RF3a1.TMP — and are not docs.</summary>

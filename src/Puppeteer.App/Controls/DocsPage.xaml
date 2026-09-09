@@ -109,9 +109,9 @@
         <Path Style="{StaticResource IconPath}" Data="{StaticResource IconDoc}" Width="28" Height="28" Stroke="{StaticResource FaintBrush}" HorizontalAlignment="Center"/>
         <TextBlock Text="No docs folder connected" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,12,0,0"/>
         <TextBlock TextWrapping="Wrap" TextAlignment="Center" Style="{StaticResource MutedText}" Margin="0,6,0,0"
-                   Text="Point Puppeteer at the folder where you keep one markdown doc per project. It reads what is already there, and writes back only what you ask it to."/>
-        <Button Command="{Binding ChooseDocsFolderCommand}" Style="{StaticResource AccentOutlineButton}" Margin="0,16,0,0" Padding="14,10" HorizontalAlignment="Center">
-          <TextBlock Text="Choose folder" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"/>
+                   Text="Add one or more folders where you keep markdown docs. Puppeteer reads what is already there, matches each doc to a project, and writes back only what you ask it to."/>
+        <Button Command="{Binding AddDocsFolderCommand}" Style="{StaticResource AccentOutlineButton}" Margin="0,16,0,0" Padding="14,10" HorizontalAlignment="Center">
+          <TextBlock Text="Add docs folder" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold"/>
         </Button>
       </StackPanel>
 

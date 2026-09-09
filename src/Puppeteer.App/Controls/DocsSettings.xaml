@@ -4,21 +4,50 @@
   <StackPanel>
     <TextBlock Text="Project docs" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
     <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,10"
-               Text="Two files' worth of setup: the folder holding one markdown doc per project, and the single index that maps the library. Puppeteer reads what is already there and matches each doc to a project. Editing outside Puppeteer is expected — it reloads when a file changes and refuses to save over an edit it has not seen."/>
+               Text="Add one or more folders of markdown docs and a single index that maps the library. Puppeteer reads what is already there and matches each doc to a project. Editing outside Puppeteer is expected — it reloads when a file changes and refuses to save over an edit it has not seen."/>
 
     <Border Style="{StaticResource SettingRow}">
       <StackPanel>
-        <TextBlock Text="States folder" Style="{StaticResource SettingLabel}"/>
-        <TextBlock Text="One doc per project, in category subfolders — for example D:\Programming\Resources\Projects. Leave blank to turn the Docs page off." Style="{StaticResource SettingHint}"/>
-        <Grid Margin="0,10,0,0">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
-          </Grid.ColumnDefinitions>
-          <TextBox Text="{Binding DocsFolder, UpdateSourceTrigger=LostFocus}" FontFamily="{StaticResource MonoFont}"/>
-          <Button Grid.Column="1" Margin="8,0,0,0" Padding="12,9" Content="Browse" Command="{Binding ChooseDocsFolderCommand}"/>
-          <Button Grid.Column="2" Margin="6,0,0,0" Padding="12,9" Content="Clear" Command="{Binding ClearDocsFolderCommand}"/>
+        <Grid>
+          <StackPanel Margin="0,0,20,0">
+            <TextBlock Text="Docs folders" Style="{StaticResource SettingLabel}"/>
+            <TextBlock Text="Each holds markdown docs, one per project, in category subfolders — for example D:\Programming\Resources\Projects. Add as many as you like; the first is where new docs are written." Style="{StaticResource SettingHint}"/>
+          </StackPanel>
+          <Button HorizontalAlignment="Right" VerticalAlignment="Center" Padding="12,9" Command="{Binding AddDocsFolderCommand}">
+            <StackPanel Orientation="Horizontal">
+              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="13" Height="13" Stroke="{StaticResource AccentBrush}"/>
+              <TextBlock Text="Add folder" Margin="8,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+          </Button>
         </Grid>
-        <TextBlock Text="{Binding DocsSummary}" Style="{StaticResource SettingHint}" Margin="2,10,0,0"/>
+        <ItemsControl ItemsSource="{Binding DocsFolders}" Margin="0,12,0,0">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="12,9" Margin="0,0,0,6">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolder}" Width="14" Height="14" Stroke="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                  <TextBlock Grid.Column="1" Text="{Binding}" Margin="10,0,10,0" VerticalAlignment="Center" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                             TextTrimming="CharacterEllipsis" ToolTip="{Binding}"/>
+                  <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <Button Style="{StaticResource IconButton}" Width="26" Height="26" ToolTip="Open in Explorer"
+                            Command="{Binding DataContext.OpenDocsFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                      <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolderOpen}" Width="13" Height="13"/>
+                    </Button>
+                    <Button Style="{StaticResource IconButton}" Width="26" Height="26" Margin="2,0,0,0" ToolTip="Remove this docs folder"
+                            Command="{Binding DataContext.RemoveDocsFolderCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" CommandParameter="{Binding}">
+                      <Path Data="{StaticResource IconClose}" Width="10" Height="10" Stroke="{StaticResource FaintBrush}" StrokeThickness="1.7" Stretch="Uniform"/>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <TextBlock Text="No docs folders yet — add one to turn the Docs page on." Style="{StaticResource SettingHint}" Margin="2,4,0,0"
+                   Visibility="{Binding HasDocsFolders, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+        <TextBlock Text="{Binding DocsSummary}" Style="{StaticResource SettingHint}" Margin="2,8,0,0"
+                   Visibility="{Binding HasDocsFolders, Converter={StaticResource BoolVis}}"/>
       </StackPanel>
     </Border>
 

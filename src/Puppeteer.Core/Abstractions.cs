@@ -62,10 +62,14 @@ public sealed record BackupResult(int RootCount, int ProjectCount);
 /// file and a replace, and <see cref="Changed"/> reports edits that arrived from outside.</summary>
 public interface IProjectDocVault : IDisposable
 {
+    /// <summary>Every folder being scanned for docs. The first is the primary — where a newly created
+    /// doc is written and where the beside-the-vault index is looked for.</summary>
+    IReadOnlyList<string> VaultPaths { get; }
+    /// <summary>The primary (first) vault folder, or null when none is set.</summary>
     string? VaultPath { get; }
     /// <summary>Raised on the thread pool when a doc changes on disk. The argument is the doc's path.</summary>
     event EventHandler<string>? Changed;
-    void Open(string? vaultPath);
+    void Open(IReadOnlyList<string> vaultPaths);
     Task<IReadOnlyList<ProjectDoc>> LoadAsync(CancellationToken cancellationToken = default);
     Task<ProjectDoc?> ReadAsync(string docPath, CancellationToken cancellationToken = default);
     /// <summary>Writes the doc back. The text it was parsed from is the guard: if the file on disk no

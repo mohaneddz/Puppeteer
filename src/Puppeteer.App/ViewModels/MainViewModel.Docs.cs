@@ -33,12 +33,10 @@ public sealed partial class MainViewModel
     public BatchCollection<ProjectDocEntry> DocEntries { get; } = [];
     public IReadOnlyList<string> DocFilters { get; } = ["All", "Undocumented", "Documented", "Active", "Paused", "Shipped", "Archived"];
 
-    private string _docsFolder = "";
-    public string DocsFolder
-    {
-        get => _docsFolder;
-        set { if (!Set(ref _docsFolder, value)) return; SavePref("DocsFolder", value.Trim()); OpenVault(); }
-    }
+    /// <summary>Every folder scanned for docs, added like project roots. The first is the primary,
+    /// where a newly created doc is written and where a beside-the-vault index is looked for.</summary>
+    public ObservableCollection<string> DocsFolders { get; } = [];
+    private void SaveDocsFolders() => SavePref("DocsFolders", string.Join("\n", DocsFolders));
 
     private string _indexFile = "";
     /// <summary>The single markdown file that maps the whole library and links to the per-project
@@ -83,8 +81,8 @@ public sealed partial class MainViewModel
         ? "No docs folder connected."
         : $"{_docs.Count} doc{(_docs.Count == 1 ? "" : "s")} · {_docMatches.Count} linked · {_readmes.Count} with a README";
 
-    public RelayCommand ChooseDocsFolderCommand { get; private set; } = null!;
-    public RelayCommand ClearDocsFolderCommand { get; private set; } = null!;
+    public RelayCommand AddDocsFolderCommand { get; private set; } = null!;
+    public RelayCommand RemoveDocsFolderCommand { get; private set; } = null!;
     public RelayCommand OpenDocsFolderCommand { get; private set; } = null!;
     public AsyncRelayCommand ReloadDocsCommand { get; private set; } = null!;
     public RelayCommand OpenDocCommand { get; private set; } = null!;
@@ -103,9 +101,9 @@ public sealed partial class MainViewModel
 
     private void InitializeDocs()
     {
-        ChooseDocsFolderCommand = new(_ => { if (_picker.PickFolder() is { Length: > 0 } folder) DocsFolder = folder; });
-        ClearDocsFolderCommand = new(_ => DocsFolder = "");
-        OpenDocsFolderCommand = new(_ => { if (_vault?.VaultPath is { } path) _launcher.OpenFolder(path); }, _ => HasVault);
+        AddDocsFolderCommand = new(_ => AddDocsFolder());
+        RemoveDocsFolderCommand = new(p => RemoveDocsFolder(p as string), p => p is string);
+        OpenDocsFolderCommand = new(p => { if ((p as string ?? _vault?.VaultPath) is { Length: > 0 } path) _launcher.OpenFolder(path); }, _ => HasVault);
         ReloadDocsCommand = new(_ => LoadDocsAsync());
         OpenDocCommand = new(p => OpenDoc((p as ProjectDocEntry)?.Doc ?? SelectedDoc), p => ((p as ProjectDocEntry)?.Doc ?? SelectedDoc) is not null);
         CreateDocCommand = new(p => CreateDocAsync((p as ProjectDocEntry)?.Project ?? SelectedProject), _ => HasVault);
@@ -132,15 +130,40 @@ public sealed partial class MainViewModel
 
     public int DocEntryCount => DocEntries.Count;
 
+    private void AddDocsFolder()
+    {
+        if (_picker.PickFolder() is not { Length: > 0 } picked) return;
+        var full = Path.GetFullPath(picked);
+        if (DocsFolders.Any(f => string.Equals(Path.GetFullPath(f), full, StringComparison.OrdinalIgnoreCase)))
+        { Status = "That folder is already a docs folder."; return; }
+        DocsFolders.Add(full);
+        SaveDocsFolders();
+        OpenVault();
+        Status = $"Added docs folder {Path.GetFileName(full)}";
+    }
+
+    private void RemoveDocsFolder(string? path)
+    {
+        if (path is null) return;
+        var at = DocsFolders.ToList().FindIndex(f => string.Equals(f, path, StringComparison.OrdinalIgnoreCase));
+        if (at < 0) return;
+        DocsFolders.RemoveAt(at);
+        SaveDocsFolders();
+        OpenVault();
+        Status = "Removed docs folder";
+    }
+
     private void OpenVault()
     {
         if (_vault is null) return;
         _vault.Changed -= OnVaultChanged;
-        _vault.Open(string.IsNullOrWhiteSpace(_docsFolder) ? null : _docsFolder);
+        _vault.Open(DocsFolders.ToArray());
         _vault.Changed += OnVaultChanged;
-        Raise(nameof(HasVault));
+        Raise(nameof(HasVault)); Raise(nameof(HasDocsFolders));
         _ = LoadDocsAsync();
     }
+
+    public bool HasDocsFolders => DocsFolders.Count > 0;
 
     // A single save can raise several watcher events, and an editor writing the file raises more.
     // Coalesce them, then reload once.
@@ -694,8 +717,19 @@ public sealed partial class MainViewModel
 
     private async Task LoadDocsPreferencesAsync()
     {
-        _docsFolder = await _repository.GetSettingAsync("DocsFolder") ?? "";
-        Raise(nameof(DocsFolder));
+        DocsFolders.Clear();
+        var stored = await _repository.GetSettingAsync("DocsFolders");
+        if (string.IsNullOrWhiteSpace(stored))
+        {
+            // Migrate the old single-folder setting into the list the first time this runs.
+            if (await _repository.GetSettingAsync("DocsFolder") is { Length: > 0 } legacy) { DocsFolders.Add(legacy); SaveDocsFolders(); }
+        }
+        else
+        {
+            foreach (var folder in stored.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                DocsFolders.Add(folder);
+        }
+        Raise(nameof(HasDocsFolders));
         _indexFile = await _repository.GetSettingAsync("DocsIndexFile") ?? "";
         Raise(nameof(IndexFile));
         _docView = await _repository.GetSettingAsync("DocsView") ?? _docView;
