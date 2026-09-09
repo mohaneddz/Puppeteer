@@ -56,9 +56,35 @@ public partial class MainWindow : Window
     protected override void OnSourceInitialized(EventArgs e)
     {
         base.OnSourceInitialized(e);
-        ((HwndSource)PresentationSource.FromVisual(this)!).AddHook(WindowProc);
+        var source = (HwndSource)PresentationSource.FromVisual(this)!;
+        source.AddHook(WindowProc);
+        source.AddHook(HotkeyProc);
+        RegisterHotKey(source.Handle, ToggleHotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_P);
         UpdateMaximizeVisual();
     }
+
+    // Ctrl+Alt+P works even while Puppeteer is hidden in the tray or another app has focus — an
+    // ordinary KeyDown handler only fires while this window is already the active one, which is
+    // exactly when the shortcut isn't needed.
+    private const int WM_HOTKEY = 0x0312;
+    private const uint MOD_ALT = 0x0001;
+    private const uint MOD_CONTROL = 0x0002;
+    private const uint MOD_NOREPEAT = 0x4000;
+    private const uint VK_P = 0x50;
+    private const int ToggleHotkeyId = 0xB00;
+
+    private IntPtr HotkeyProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        if (msg == WM_HOTKEY && wParam.ToInt32() == ToggleHotkeyId)
+        {
+            ToggleTrayVisibility();
+            handled = true;
+        }
+        return IntPtr.Zero;
+    }
+
+    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
     private void UpdateMaximizeVisual()
     {
@@ -320,6 +346,7 @@ public partial class MainWindow : Window
         foreach (var session in Vm.Sessions.ToArray())
             if (session.Running) session.StopCommand.Execute(null);
         SaveLayout();
+        UnregisterHotKey(new WindowInteropHelper(this).Handle, ToggleHotkeyId);
         _tray.Dispose();
         Application.Current.Shutdown();
     }

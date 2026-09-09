@@ -607,7 +607,7 @@
                 <TextBlock Text="Roots, startup behaviour, terminals and appearance." Style="{StaticResource MutedText}" Margin="0,0,0,22"/>
                 <TextBlock Text="Keyboard shortcuts" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
                 <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,22"
-                           Text="Ctrl+T: new terminal · Ctrl+W: close terminal · Ctrl+Shift+T: reopen closed terminal&#10;Ctrl+Tab / Ctrl+Shift+Tab: next / previous terminal · Ctrl+1–8: select tab · Ctrl+9: last tab&#10;Ctrl+F / Ctrl+K: search projects · Ctrl+R: rescan · Ctrl+`: show/hide terminals&#10;Reopen retains output and input history in this app session; programs and shell variables start fresh."/>
+                           Text="Ctrl+T: new terminal · Ctrl+W: close terminal · Ctrl+Shift+T: reopen closed terminal&#10;Ctrl+Tab / Ctrl+Shift+Tab: next / previous terminal · Ctrl+1–8: select tab · Ctrl+9: last tab&#10;Ctrl+F / Ctrl+K: search projects · Ctrl+R: rescan · Ctrl+`: show/hide terminals&#10;Ctrl+Alt+P: show/hide Puppeteer — works anywhere, even while it's hidden in the tray&#10;Reopen retains output and input history in this app session; programs and shell variables start fresh."/>
 
                 <!-- Two columns once there is room, one when the window is narrow -->
                 <UniformGrid Columns="{Binding ActualWidth, RelativeSource={RelativeSource Self}, Converter={StaticResource ColumnCount}, ConverterParameter=820}">
