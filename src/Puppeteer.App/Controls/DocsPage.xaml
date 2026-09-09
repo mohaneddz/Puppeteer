@@ -117,7 +117,8 @@
 
       <!-- Rows / cards. Both templates live in the style so the trigger can swap them; a locally
            set ItemTemplate would outrank it and pin the page to one view. -->
-      <ListBox Grid.Row="2" ItemsSource="{Binding DocEntries}"
+      <ListBox Grid.Row="2" ItemsSource="{Binding DocEntries}" SelectedItem="{Binding SelectedDocEntry, Mode=TwoWay}"
+               MouseDoubleClick="Row_DoubleClick"
                ScrollViewer.VerticalScrollBarVisibility="Auto" VirtualizingPanel.IsVirtualizing="True"
                VirtualizingPanel.VirtualizationMode="Recycling"
                Visibility="{Binding HasVault, Converter={StaticResource BoolVis}}">
@@ -126,8 +127,24 @@
             <Setter Property="ItemTemplate">
               <Setter.Value>
                 <DataTemplate>
-                  <Border Style="{StaticResource PanelCard}" Padding="16,14" Margin="0,0,0,9" Cursor="Hand"
+                  <Border Padding="16,14" Margin="0,0,0,9" BorderThickness="1" CornerRadius="12" Cursor="Hand"
                           ToolTip="Click to inspect this project" MouseLeftButtonUp="Row_Click">
+                    <Border.Style>
+                      <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource CardBrush}"/>
+                        <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                        <Style.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{StaticResource CardHoverBrush}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource BorderStrongBrush}"/>
+                          </Trigger>
+                          <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Border.Style>
                     <Grid>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>

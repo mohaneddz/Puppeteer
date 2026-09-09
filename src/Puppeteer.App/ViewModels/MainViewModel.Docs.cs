@@ -124,7 +124,13 @@ public sealed partial class MainViewModel
         SetDocViewCommand = new(p => DocView = p?.ToString() ?? "List");
         AcceptDocSuggestionCommand = new(p => AcceptSuggestionAsync((p as ProjectDocEntry)?.Project ?? SelectedProject),
             p => SuggestionFor((p as ProjectDocEntry)?.Project ?? SelectedProject) is not null);
-        SelectDocEntryCommand = new(p => { if (p is ProjectDocEntry entry) SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project; });
+        SelectDocEntryCommand = new(p =>
+        {
+            if (p is not ProjectDocEntry entry) return;
+            // Use the collection's current entry so the selected visual survives a filtered/rebuilt list.
+            SelectedDocEntry = entry;
+            SelectedProject = Projects.FirstOrDefault(x => x.Id == entry.Project.Id) ?? entry.Project;
+        });
 
         InitializeReader();
         InitializeDocsTree();
@@ -134,6 +140,20 @@ public sealed partial class MainViewModel
 
 
     public int DocEntryCount => DocEntries.Count;
+
+    // Keep the Docs page's ListBox selection in step with the global project selection. The
+    // inspector remains project-based, but this gives the card the persistent selected state that
+    // makes it clear which doc is currently being inspected.
+    private ProjectDocEntry? _selectedDocEntry;
+    public ProjectDocEntry? SelectedDocEntry
+    {
+        get => _selectedDocEntry;
+        set
+        {
+            if (!Set(ref _selectedDocEntry, value) || value is null) return;
+            if (SelectedProject?.Id != value.Project.Id) SelectedProject = value.Project;
+        }
+    }
 
     private void AddDocsFolder()
     {
@@ -398,6 +418,7 @@ public sealed partial class MainViewModel
             .ToArray();
 
         DocEntries.ReplaceAll(entries);
+        SelectedDocEntry = entries.FirstOrDefault(entry => entry.Project.Id == SelectedProject?.Id);
         Raise(nameof(DocsSummary));
 
         bool Keep(ProjectDocEntry entry)
