@@ -62,6 +62,11 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
     public bool HasNextStep => NextStep.Length > 0;
 
     public string DriftSummary => Drift.Reasons.Count == 0 ? "In step with the repo" : string.Join(" · ", Drift.Reasons);
+    /// <summary>The drift reasons one per line, for the card's hover tooltip. Titled so a glance at the
+    /// warning icon reads as advice rather than an error.</summary>
+    public string DriftDetail => Drift.Reasons.Count == 0
+        ? "In step with the repo"
+        : "This doc has drifted from the repo:\n" + string.Join("\n", Drift.Reasons.Select(r => "· " + r));
     public bool NeedsWriteup => Drift.NeedsWriteup;
     public int DriftCount => Drift.Reasons.Count;
 

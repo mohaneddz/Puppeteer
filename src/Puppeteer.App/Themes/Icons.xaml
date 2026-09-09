@@ -31,4 +31,5 @@
   <Geometry x:Key="IconWindowMaximize">M4 4H16V16H4Z</Geometry>
   <Geometry x:Key="IconWindowRestore">M7.5 7.5H16.5V16.5H7.5Z M5.5 12.5V5.5H12.5</Geometry>
   <Geometry x:Key="IconExpand">M8 3H5a2 2 0 0 0-2 2v3 M16 3h3a2 2 0 0 1 2 2v3 M21 16v3a2 2 0 0 1-2 2h-3 M3 16v3a2 2 0 0 0 2 2h3</Geometry>
+  <Geometry x:Key="IconWarning">M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01</Geometry>
 </ResourceDictionary>
