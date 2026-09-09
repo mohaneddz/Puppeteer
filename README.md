@@ -29,10 +29,9 @@ Built with **.NET 10** and **WPF**.
 - Live Git status: a dot on every card with uncommitted changes, refreshed in the background after each load, and the branch plus changed files in the inspector.
 
 **Documenting**
-- Connect a **docs folder** — one markdown doc per project, holding what it is, what works, what's broken, and what comes next — and Puppeteer matches each doc to a project and shows the two side by side.
-- The folder is expected to be edited from outside. Puppeteer reloads when a doc changes underneath it, and refuses to save over an edit it hasn't seen rather than overwriting it.
-- Matching survives folders being moved and renamed: exact path, then folder name, then the doc's own names (its title, its file name, and anything in an `Aliases:` field). A near-miss is offered for one click, never applied on its own. A doc describing a folder that holds several repos covers all of them.
-- The **Docs** page ranks by what needs attention and spells out the drift: location moved, stack no longer matches, newer commits than the doc, empty sections, plus live repo facts — uncommitted work, unpushed commits, parked on a branch.
+- Add one or more **docs folders** — each holds markdown docs, one per project, saying what it is, what works, what's broken, and what comes next — and Puppeteer matches each doc to a project and shows the two side by side. Toggle the sidebar's folder panel between your project roots and your docs folders.
+- The folders are expected to be edited from outside. Puppeteer reloads when a doc changes underneath it, and refuses to save over an edit it hasn't seen rather than overwriting it.
+- Matching survives folders being moved and renamed: exact path, then folder name, then the doc's own names (its title, its file name, and anything in an `Aliases:` field), and finally an **LLM pass** that places whatever's left — reading each doc's location, stack and summary to recognise, say, that a doc for a parent folder still describes the app in its subfolder.
 - **Sync facts** rewrites only `Location`, `Stack` and `Last activity` from the repo, for one doc or every linked one. Prose sections are yours and are never touched.
 - Edit a doc's status and its five sections straight from the inspector, or open the file in your editor.
 - **Read** any project's state doc, its own README, or the index itself, rendered in the app — headings, lists, tables, code and links.
