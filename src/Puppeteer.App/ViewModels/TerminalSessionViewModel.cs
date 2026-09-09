@@ -19,6 +19,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public bool HasPendingOutput { get { lock (_outputGate) return _pendingOutput.Count > 0; } }
     public string Name { get; }
     public string ProjectName { get; }
+    public Project Project { get; }
     public string ProjectTechnology { get; }
     public string ProjectPath { get; }
     public string Command { get; }
@@ -26,6 +27,11 @@ public sealed class TerminalSessionViewModel : ObservableObject
 
     private bool _running;
     public bool Running { get => _running; private set => Set(ref _running, value); }
+
+    // Which pane the keyboard is aimed at. Owned by MainViewModel.SelectedSession so exactly one
+    // session carries it; the split pane's border binds to it for the active-pane accent.
+    private bool _isSelected;
+    public bool IsSelected { get => _isSelected; set => Set(ref _isSelected, value); }
 
     private DateTimeOffset? _stoppedAt;
 
@@ -64,6 +70,7 @@ public sealed class TerminalSessionViewModel : ObservableObject
     public TerminalSessionViewModel(ITerminalSession session, Project project, Brush? accent = null)
     {
         Session = session;
+        Project = project;
         Name = session.Name;
         ProjectName = project.Name;
         ProjectTechnology = project.PrimaryTechnology;
@@ -127,6 +134,15 @@ public sealed class TerminalSessionViewModel : ObservableObject
     }
 
     private readonly List<string> _history = [];
+    public void RestoreFrom(TerminalSessionViewModel previous)
+    {
+        previous.FlushOutput();
+        Output.ReplaceAll(previous.Output.TakeLast(MaxOutputLines - 1));
+        Output.Add("[Reopened in a new shell. Previous output retained; running programs and shell variables were not restored.]");
+        _history.AddRange(previous._history);
+        _historyIndex = _history.Count;
+        Input = previous.Input;
+    }
     private int _historyIndex;
 
     public async Task SendAsync()
