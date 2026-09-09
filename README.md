@@ -1,10 +1,23 @@
 ![Puppeteer](screenshots/cover.avif)
 
-# Puppeteer — Project Hub for Windows
+<h1 style="font-family: Arial, sans-serif; font-size: 36px; color: #F0B24A; display: flex; align-items: center; gap: 12px; border-bottom: 3px solid #F0B24A; padding-bottom: 8px;">
+  <img src="src/Puppeteer.App/Assets/icon.png" alt="Puppeteer Icon" style="height: 55px; width: 55px; object-fit: contain; border-radius: 8px;">
+  Puppeteer: Project Hub for Windows
+</h1>
 
-**Puppeteer** is a focused Windows project hub for people with more repositories than browser tabs. Point it at the folders where you keep your code and it discovers the projects underneath, recognizes their stack, keeps their state docs close, and opens persistent terminals in the right working directory.
+**Puppeteer** is a focused Windows project hub for people with more repositories than browser tabs. Point it at the folders where you keep your code and it discovers the projects underneath, recognizes their stack, keeps their state docs close, and opens persistent terminals in the right working directory. Built with **.NET 10, C#, WPF, and SQLite**.
 
 Browse a library as cards or a compact list, filter it by type, technology, category, and state, then pick up exactly where you left off without hunting through Explorer.
+
+---
+
+## Tech Used
+
+![.NET](https://img.shields.io/badge/.NET-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)
+![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=csharp&logoColor=white)
+![WPF](https://img.shields.io/badge/WPF-0C54C2?style=for-the-badge&logo=windows&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Windows](https://img.shields.io/badge/Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 
 ## Screenshots
 
@@ -34,15 +47,15 @@ Configure scan roots, startup and tray behavior, terminals, appearance, tools, d
 
 ## Features
 
-- **Discovery** — recursively scan project roots while skipping generated and heavy folders such as `node_modules`, `bin`, `obj`, and `.git`.
-- **Stack detection** — recognize Tauri, .NET/WPF, Flutter, Next.js, Vite/React, Node.js, Qt, Android/Kotlin, Rust, Python, and Godot projects; surface their technology list and likely run commands.
-- **Organizing** — filter independently by project type, technology, category, and state; search by name, path, or stack; sort by name, recent activity, or type; and pin frequently used projects.
-- **Terminal workspace** — create interactive terminal sessions in the selected project's directory, with presets, splitting, fullscreen, and per-session stop, restart, clear, and copy actions.
-- **Git awareness** — see uncommitted-change indicators in the library and branch / changed-file details in the inspector, refreshed in the background.
-- **Project docs** — pair projects with Markdown docs, edit their status and sections in the app, render docs and READMEs, and sync repository facts without rewriting your notes.
-- **Projects index** — read a hand-maintained Markdown index for summaries, sections, states, and durable doc links when folders are renamed.
-- **Thoughtful Windows behavior** — notification-area controls, optional close/minimize-to-tray, launch at sign-in, remembered layout preferences, and keyboard shortcuts.
-- **Local-first storage** — roots, project metadata, pins, presets, preferences, and history are stored locally in SQLite.
+- **Discovery:** recursively scan project roots while skipping generated and heavy folders such as `node_modules`, `bin`, `obj`, and `.git`.
+- **Stack detection:** recognize Tauri, .NET/WPF, Flutter, Next.js, Vite/React, Node.js, Qt, Android/Kotlin, Rust, Python, and Godot projects; surface their technology list and likely run commands.
+- **Organizing:** filter independently by project type, technology, category, and state; search by name, path, or stack; sort by name, recent activity, or type; and pin frequently used projects.
+- **Terminal workspace:** create interactive terminal sessions in the selected project's directory, with presets, splitting, fullscreen, and per-session stop, restart, clear, and copy actions.
+- **Git awareness:** see uncommitted-change indicators in the library and branch / changed-file details in the inspector, refreshed in the background.
+- **Project docs:** pair projects with Markdown docs, edit their status and sections in the app, render docs and READMEs, and sync repository facts without rewriting your notes.
+- **Projects index:** read a hand-maintained Markdown index for summaries, sections, states, and durable doc links when folders are renamed.
+- **Thoughtful Windows behavior:** notification-area controls, optional close/minimize-to-tray, launch at sign-in, remembered layout preferences, and keyboard shortcuts.
+- **Local-first storage:** roots, project metadata, pins, presets, preferences, and history are stored locally in SQLite.
 
 ## Requirements
 
