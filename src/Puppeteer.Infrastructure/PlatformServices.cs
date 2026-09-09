@@ -60,15 +60,73 @@ public sealed class ProjectLauncher : IProjectLauncher
     public void OpenFolder(string path) => Process.Start(new ProcessStartInfo("explorer.exe", path) { UseShellExecute = true });
     public void OpenInIde(string path, string? command = null)
     {
+        using var process = Process.Start(CreateEditorStartInfo(path, command));
+    }
+
+    internal static ProcessStartInfo CreateEditorStartInfo(string path, string? command = null)
+    {
         // Open the repository folder rather than relying on Windows' file association for a .sln,
         // which commonly launches Visual Studio instead of VS Code. "code ." remains supported
         // for existing settings, but the repository path is supplied explicitly.
         var executable = string.IsNullOrWhiteSpace(command) ? "code" : command.Trim();
         if (executable.EndsWith(" .", StringComparison.Ordinal)) executable = executable[..^2].TrimEnd();
+        executable = executable.Trim('"');
+        executable = ResolveEditor(executable);
 
-        var info = new ProcessStartInfo(executable) { WorkingDirectory = path, UseShellExecute = false, CreateNoWindow = true };
+        path = Path.GetFullPath(path);
+        if (!Directory.Exists(path) && !File.Exists(path))
+            throw new FileNotFoundException("The file or folder to open no longer exists.", path);
+
+        // A reader can open a markdown file as well as a project directory. ProcessStartInfo requires
+        // its working directory to be a directory; using the file path here prevents Windows from
+        // starting the editor at all.
+        var workingDirectory = Directory.Exists(path) ? path : Path.GetDirectoryName(path);
+        var info = new ProcessStartInfo(executable)
+        {
+            WorkingDirectory = string.IsNullOrWhiteSpace(workingDirectory) ? Environment.CurrentDirectory : workingDirectory,
+            UseShellExecute = Path.GetExtension(executable).Equals(".cmd", StringComparison.OrdinalIgnoreCase)
+                || Path.GetExtension(executable).Equals(".bat", StringComparison.OrdinalIgnoreCase),
+            CreateNoWindow = true,
+        };
         info.ArgumentList.Add(path);
-        Process.Start(info);
+        return info;
+    }
+
+    private static string ResolveEditor(string command)
+    {
+        // VS Code exposes code.cmd on Windows, not code.exe. Prefer the actual GUI executable
+        // so opening a file or folder does not depend on a shell or a freshly inherited PATH.
+        var name = Path.GetFileName(command);
+        if (name.Equals("code", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("code.cmd", StringComparison.OrdinalIgnoreCase))
+        {
+            var candidates = new List<string>();
+            if (Path.IsPathRooted(command))
+                candidates.Add(Path.GetFullPath(Path.Combine(Path.GetDirectoryName(command)!, "..", "Code.exe")));
+            foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+            {
+                var bin = folder.Trim().Trim('"');
+                if (bin.Length > 0 && File.Exists(Path.Combine(bin, "code.cmd")))
+                    candidates.Add(Path.GetFullPath(Path.Combine(bin, "..", "Code.exe")));
+            }
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "Microsoft VS Code", "Code.exe"));
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft VS Code", "Code.exe"));
+            candidates.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft VS Code", "Code.exe"));
+            if (candidates.FirstOrDefault(File.Exists) is { } installed) return installed;
+        }
+
+        if (File.Exists(command)) return Path.GetFullPath(command);
+        foreach (var folder in (Environment.GetEnvironmentVariable("PATH") ?? "").Split(Path.PathSeparator))
+        {
+            var bin = folder.Trim().Trim('"');
+            if (bin.Length == 0) continue;
+            foreach (var extension in new[] { "", ".exe", ".cmd", ".bat" })
+            {
+                var candidate = Path.Combine(bin, command + extension);
+                if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+            }
+        }
+        throw new FileNotFoundException($"Couldn't find editor '{command}'. Set the editor executable path in Settings.");
     }
 }
 
