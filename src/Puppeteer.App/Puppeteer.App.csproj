@@ -19,6 +19,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!-- WPF owns the window and DPI lifecycle; WinForms is used only for NotifyIcon. -->
     <NoWarn>$(NoWarn);WFO0003</NoWarn>

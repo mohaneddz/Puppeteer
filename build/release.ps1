@@ -23,7 +23,7 @@ $zip = Join-Path $artifacts "Puppeteer-$Version-win-x64.zip"
 Compress-Archive -Path (Join-Path $publish '*') -DestinationPath $zip
 
 $msi = Join-Path $artifacts "Puppeteer-$Version-win-x64-setup.msi"
-$icon = Join-Path $root 'src\Puppeteer.App\Assets\icon.png'
+$icon = Join-Path $root 'src\Puppeteer.App\Assets\icon.ico'
 wix --acceptEula wix7 build (Join-Path $root 'installer\Puppeteer.wxs') -arch x64 -d "PublishDir=$publish" -d "IconFile=$icon" -out $msi -pdbtype none
 if ($LASTEXITCODE) { throw 'Installer build failed.' }
 
