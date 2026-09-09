@@ -21,8 +21,8 @@ public partial class MainWindow : Window
 
     private readonly Services.TrayIcon _tray;
     private bool _exiting;
-    private System.Windows.Point _terminalPaneDragOrigin;
-    private TerminalSessionViewModel? _terminalPaneDragSession;
+    private System.Windows.Point _terminalTabDragOrigin;
+    private TerminalSessionViewModel? _terminalTabDragSession;
 
     public MainWindow(MainViewModel viewModel, Services.TrayIcon tray)
     {
@@ -35,11 +35,16 @@ public partial class MainWindow : Window
         ApplyTerminalLayout();
         Loaded += async (_, _) => { await RestoreLayoutAsync(); SyncGroqKeyBox(); };
         Closing += Window_Closing;
-        StateChanged += (_, _) => { UpdateMaximizeVisual(); ApplyMinimizeToTray(); };
+        StateChanged += (_, _) => UpdateMaximizeVisual();
         _tray.ShowRequested += (_, _) => RestoreFromTray();
         _tray.ToggleRequested += (_, _) => ToggleTrayVisibility();
         _tray.NewTerminalRequested += (_, _) => { RestoreFromTray(); if (Vm.NewSessionCommand.CanExecute(null)) Vm.NewSessionCommand.Execute(null); };
         _tray.ExitRequested += (_, _) => { _exiting = true; Close(); };
+        _tray.RunningRequested += (_, _) => { RestoreFromTray(); Vm.CurrentPage = "Running"; };
+        _tray.SettingsRequested += (_, _) => { RestoreFromTray(); Vm.CurrentPage = "Settings"; };
+        _tray.ReopenRequested += (_, _) => { RestoreFromTray(); _ = Vm.ReopenTerminalAsync(); };
+        _tray.StopAllRequested += (_, _) => { if (Vm.StopAllCommand.CanExecute(null)) Vm.StopAllCommand.Execute(null); };
+        _tray.RescanRequested += (_, _) => { if (Vm.RescanCommand.CanExecute(null)) Vm.RescanCommand.Execute(null); };
         _tray.SetRunningCount(0);
         if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 } capturePath)
             Loaded += (_, _) => CaptureAndExit(capturePath);
@@ -66,17 +71,47 @@ public partial class MainWindow : Window
 
     private static IntPtr WindowProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        // WPF routes the vertical wheel to MouseWheel but silently drops WM_MOUSEHWHEEL, so a precision
+        // touchpad's two-finger horizontal pan does nothing. Translate it into a horizontal scroll of
+        // whatever scrollable ScrollViewer sits under the pointer (the split grid, the tab strip, …).
+        if (msg == 0x020E /* WM_MOUSEHWHEEL */)
+        {
+            var delta = (short)((wParam.ToInt64() >> 16) & 0xFFFF);
+            if (Mouse.DirectlyOver is DependencyObject over && FindHorizontalScrollViewer(over) is { } scroller)
+            {
+                scroller.ScrollToHorizontalOffset(Math.Clamp(scroller.HorizontalOffset + delta / 120.0 * 48, 0, scroller.ScrollableWidth));
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
+
+        // The custom title bar is client content. Keep it exactly inside this monitor's work
+        // rectangle, without WindowChrome's maximized resize-frame inset being applied again.
+        if (msg == 0x0083 /* WM_NCCALCSIZE */ && IsZoomed(hwnd))
+        {
+            var current = MonitorFromWindow(hwnd, 2);
+            var bounds = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
+            if (current != IntPtr.Zero && GetMonitorInfo(current, ref bounds))
+            {
+                // Both NCCALCSIZE forms begin with the proposed client RECT.
+                Marshal.StructureToPtr(bounds.rcWork, lParam, false);
+                handled = true;
+            }
+            return IntPtr.Zero;
+        }
         if (msg != WM_GETMINMAXINFO) return IntPtr.Zero;
         var monitor = MonitorFromWindow(hwnd, 0x2 /* MONITOR_DEFAULTTONEAREST */);
         if (monitor != IntPtr.Zero)
         {
             var info = new MonitorInfo { cbSize = Marshal.SizeOf<MonitorInfo>() };
-            GetMonitorInfo(monitor, ref info);
+            if (!GetMonitorInfo(monitor, ref info)) return IntPtr.Zero;
             var mmi = Marshal.PtrToStructure<MinMaxInfo>(lParam);
             mmi.ptMaxPosition.X = info.rcWork.Left - info.rcMonitor.Left;
             mmi.ptMaxPosition.Y = info.rcWork.Top - info.rcMonitor.Top;
             mmi.ptMaxSize.X = info.rcWork.Right - info.rcWork.Left;
             mmi.ptMaxSize.Y = info.rcWork.Bottom - info.rcWork.Top;
+            mmi.ptMinTrackSize.X = Math.Min(mmi.ptMinTrackSize.X, mmi.ptMaxSize.X);
+            mmi.ptMinTrackSize.Y = Math.Min(mmi.ptMinTrackSize.Y, mmi.ptMaxSize.Y);
             Marshal.StructureToPtr(mmi, lParam, true);
             handled = true;
         }
@@ -84,11 +119,15 @@ public partial class MainWindow : Window
     }
 
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromWindow(IntPtr hwnd, int flags);
+    [DllImport("user32.dll")] private static extern bool IsZoomed(IntPtr hwnd);
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(Point point, int flags);
     [DllImport("user32.dll")] private static extern bool GetMonitorInfo(IntPtr monitor, ref MonitorInfo info);
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out Point point);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
     [DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] private static extern bool GetWindowPlacement(IntPtr hwnd, ref WindowPlacement placement);
+    [DllImport("user32.dll")] private static extern bool SetWindowPlacement(IntPtr hwnd, ref WindowPlacement placement);
+    [DllImport("user32.dll")] private static extern int GetSystemMetrics(int index);
 
     // CenterScreen always drops the window on the primary monitor, so on a multi-monitor setup it can
     // open behind whatever's on a screen you aren't looking at — "it's running but I can't see it".
@@ -125,41 +164,82 @@ public partial class MainWindow : Window
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct MinMaxInfo { public Point ptReserved, ptMaxSize, ptMaxPosition, ptMinTrackSize, ptMaxTrackSize; }
     [StructLayout(LayoutKind.Sequential)] private struct MonitorInfo { public int cbSize; public Rect rcMonitor, rcWork; public int dwFlags; }
+    [StructLayout(LayoutKind.Sequential)] private struct WindowPlacement { public int length, flags, showCmd; public Point ptMinPosition, ptMaxPosition; public Rect rcNormalPosition; }
 
     private async Task RestoreLayoutAsync()
     {
-        var work = SystemParameters.WorkArea;
-        if (double.TryParse(await Vm.GetPrefAsync("WindowWidth"), out var w) && w > 400) Width = Math.Min(w, work.Width);
-        if (double.TryParse(await Vm.GetPrefAsync("WindowHeight"), out var h) && h > 300) Height = Math.Min(h, work.Height);
+        var placement = await Vm.GetPrefAsync("WindowPlacement");
         if (double.TryParse(await Vm.GetPrefAsync("SidebarWidth"), out var sw) && sw > 0) { _sidebarWidth = sw; SidebarColumn.Width = new GridLength(sw); }
         if (double.TryParse(await Vm.GetPrefAsync("DetailsWidth"), out var dw) && dw > 0) { _detailsWidth = dw; DetailsColumn.Width = new GridLength(dw); }
         if (double.TryParse(await Vm.GetPrefAsync("TerminalHeight"), out var th) && th > 80) _terminalHeight = th;
-        if (await Vm.GetPrefAsync("Maximized") == "1") WindowState = WindowState.Maximized;
-        // Do this last, and after the pending layout pass: setting Width/Height above makes WPF re-assert
-        // its cached CenterScreen position (the primary monitor), which would otherwise snap the window
-        // back off whichever screen the user is actually on. Skip under the offscreen capture harness.
-        if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is not { Length: > 0 } && WindowState != WindowState.Minimized)
-            await Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(BringToActiveMonitor));
+        // Collapsed panels are restored from the view model (loaded before the window was shown), but
+        // its PropertyChanged fired before this window subscribed, so apply the two that drive columns.
+        if (Vm.SidebarCollapsed) ApplySidebar();
+        if (Vm.DetailsCollapsed) ApplyDetails();
+        // Restore the window's position, size, maximized state and monitor at the Win32 level. WINDOWPLACEMENT
+        // works in physical pixels and records which screen a maximized window lived on, so it survives mixed
+        // DPI and multi-monitor setups that WPF's Left/Top/Width/Height mishandle. Skip under the offscreen
+        // capture harness, which wants a predictable on-screen window.
+        if (Environment.GetEnvironmentVariable("PUPPETEER_CAPTURE") is { Length: > 0 }) return;
+        if (!string.IsNullOrEmpty(placement)) TryRestorePlacement(placement);
     }
 
     // Written as one awaited batch rather than a handful of fire-and-forget writes: this runs as the
     // window closes, and anything still in flight when the process exits is simply lost.
     private void SaveLayout()
     {
-        var restore = RestoreBounds;
-        var values = new Dictionary<string, string?>
-        {
-            ["Maximized"] = WindowState == WindowState.Maximized ? "1" : "0",
-        };
-        if (!restore.IsEmpty)
-        {
-            values["WindowWidth"] = restore.Width.ToString("F0");
-            values["WindowHeight"] = restore.Height.ToString("F0");
-        }
+        var values = new Dictionary<string, string?>();
+        if (CapturePlacement() is { } placement) values["WindowPlacement"] = placement;
         if (SidebarColumn.ActualWidth > 0) values["SidebarWidth"] = SidebarColumn.ActualWidth.ToString("F0");
         if (DetailsColumn.ActualWidth > 0) values["DetailsWidth"] = DetailsColumn.ActualWidth.ToString("F0");
         if (TerminalRow.ActualHeight > 80) values["TerminalHeight"] = TerminalRow.ActualHeight.ToString("F0");
         try { Vm.SavePrefsAsync(values).GetAwaiter().GetResult(); } catch { }
+    }
+
+    // rcNormalPosition is the non-maximized bounds even while maximized, and showCmd records whether the
+    // window was maximized — so one blob captures size, position, monitor and maximized state together.
+    private string? CapturePlacement()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return null;
+        var wp = new WindowPlacement { length = Marshal.SizeOf<WindowPlacement>() };
+        if (!GetWindowPlacement(hwnd, ref wp)) return null;
+        var r = wp.rcNormalPosition;
+        return string.Join(',', wp.showCmd, r.Left, r.Top, r.Right, r.Bottom);
+    }
+
+    private void TryRestorePlacement(string saved)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero) return;
+        var parts = saved.Split(',');
+        if (parts.Length != 5 || !parts.All(p => int.TryParse(p, out _))) return;
+        var v = parts.Select(int.Parse).ToArray();
+        var rect = new Rect { Left = v[1], Top = v[2], Right = v[3], Bottom = v[4] };
+        // A monitor that was present last session may be gone now. If the saved bounds no longer land on
+        // any screen, leave WPF's CenterScreen default so the window doesn't open into the void.
+        if (!IntersectsVirtualScreen(rect)) return;
+        var wp = new WindowPlacement
+        {
+            length = Marshal.SizeOf<WindowPlacement>(),
+            // 3 = SW_SHOWMAXIMIZED. Anything else (including a minimized/hidden last state) opens normally.
+            showCmd = v[0] == 3 ? 3 : 1,
+            rcNormalPosition = rect,
+        };
+        SetWindowPlacement(hwnd, ref wp);
+        if (wp.showCmd == 3) WindowState = WindowState.Maximized;
+    }
+
+    private static bool IntersectsVirtualScreen(Rect r)
+    {
+        int vx = GetSystemMetrics(76), vy = GetSystemMetrics(77);
+        int vw = GetSystemMetrics(78), vh = GetSystemMetrics(79);
+        var left = Math.Max(r.Left, vx);
+        var top = Math.Max(r.Top, vy);
+        var right = Math.Min(r.Right, vx + vw);
+        var bottom = Math.Min(r.Bottom, vy + vh);
+        // Require a usable slab on screen, not a one-pixel sliver clinging to a monitor edge.
+        return right - left >= 120 && bottom - top >= 80;
     }
 
     private void CaptureAndExit(string path)
@@ -200,20 +280,7 @@ public partial class MainWindow : Window
 
     // ---- Notification area ----
 
-    /// <summary>Hides the window from the taskbar when it is minimized, if the user asked for that.
-    /// The processes keep running; the tray icon is what says so.</summary>
-    private void ApplyMinimizeToTray()
-    {
-        if (WindowState != WindowState.Minimized || !Vm.MinimizeToTray) return;
-        Hide();
-        if (!_announcedTray)
-        {
-            _announcedTray = true;
-            _tray.Notify("Puppeteer is still running", "Find it in the notification area, or double-click the icon to bring it back.");
-        }
-    }
 
-    private bool _announcedTray;
 
     private void RestoreFromTray()
     {
@@ -236,7 +303,6 @@ public partial class MainWindow : Window
     /// window in the user's face.</summary>
     public void StartHidden()
     {
-        _announcedTray = true;
         WindowState = WindowState.Minimized;
         Hide();
     }
@@ -251,13 +317,8 @@ public partial class MainWindow : Window
             Hide();
             return;
         }
-        if (!_exiting && Vm.ConfirmExitWithSessions && Vm.RunningCount > 0)
-        {
-            var answer = MessageBox.Show(this,
-                $"{Vm.RunningCount} terminal session(s) are still running. Quitting will stop them.",
-                "Quit Puppeteer?", MessageBoxButton.OKCancel, MessageBoxImage.Warning);
-            if (answer != MessageBoxResult.OK) { e.Cancel = true; return; }
-        }
+        foreach (var session in Vm.Sessions.ToArray())
+            if (session.Running) session.StopCommand.Execute(null);
         SaveLayout();
         _tray.Dispose();
         Application.Current.Shutdown();
@@ -312,28 +373,6 @@ public partial class MainWindow : Window
         if (TerminalRow.ActualHeight > 40) _terminalHeight = TerminalRow.ActualHeight;
     }
 
-    private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton != MouseButton.Left) return;
-        if (e.ClickCount == 2)
-        {
-            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-            return;
-        }
-        // Dragging a maximized window restores it first, the way a native title bar does, and keeps
-        // the grabbed point under the cursor instead of snapping the window's left edge to it.
-        if (WindowState == WindowState.Maximized)
-        {
-            var cursor = e.GetPosition(this);
-            var ratio = ActualWidth > 0 ? cursor.X / ActualWidth : 0.5;
-            WindowState = WindowState.Normal;
-            var screen = PointToScreen(cursor);
-            Left = screen.X - RestoreBounds.Width * ratio;
-            Top = screen.Y - cursor.Y;
-        }
-        // DragMove throws if the button was already released between the event and this call.
-        try { DragMove(); } catch (InvalidOperationException) { }
-    }
 
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
 
@@ -383,6 +422,42 @@ public partial class MainWindow : Window
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        // The confirm dialog is modal: Enter answers it, Escape cancels it, everything else is swallowed.
+        if (Vm.DialogOpen)
+        {
+            if (e.Key == Key.Escape) { Vm.CancelDialog(); e.Handled = true; }
+            else if (e.Key == Key.Enter) { if (Vm.DialogConfirmCommand.CanExecute(null)) Vm.DialogConfirmCommand.Execute(null); e.Handled = true; }
+            return;
+        }
+        if (!Vm.ReaderOpen && !Vm.FieldEditorOpen && ctrl)
+        {
+            if (e.Key == Key.T)
+            {
+                if (shift) _ = Vm.ReopenTerminalAsync();
+                else if (Vm.NewSessionCommand.CanExecute(null)) Vm.NewSessionCommand.Execute(null);
+                e.Handled = true; return;
+            }
+            if (e.Key == Key.W)
+            {
+                if (Vm.SelectedSession is { } session) Vm.CloseSessionCommand.Execute(session);
+                e.Handled = true; return;
+            }
+            if (e.Key == Key.Tab || e.Key == Key.PageDown || e.Key == Key.PageUp)
+            {
+                Vm.CycleTerminal(shift || e.Key == Key.PageUp ? -1 : 1);
+                e.Handled = true; return;
+            }
+            if (e.Key >= Key.D1 && e.Key <= Key.D9)
+            {
+                Vm.SelectTerminal(e.Key == Key.D9 ? Vm.Sessions.Count - 1 : (int)e.Key - (int)Key.D1);
+                e.Handled = true; return;
+            }
+            if (e.Key == Key.F)
+            {
+                SearchBox.Focus(); SearchBox.SelectAll(); e.Handled = true; return;
+            }
+        }
         // Ctrl+` is the exception: toggling the panel away is exactly what you want from inside it.
         if (ctrl && TypingInTerminal && e.Key != Key.OemTilde) return;
         if (ctrl && e.Key == Key.K)
@@ -432,6 +507,11 @@ public partial class MainWindow : Window
 
     private void FieldEditorModal_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
 
+    // Clicking the backdrop cancels the confirm dialog; clicking the card itself must not.
+    private void DialogOverlay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => Vm.CancelDialog();
+
+    private void DialogModal_MouseLeftButtonDown(object sender, MouseButtonEventArgs e) => e.Handled = true;
+
     private void TerminalInput_KeyDown(object sender, KeyEventArgs e)
     {
         if (sender is not TextBox box || box.DataContext is not TerminalSessionViewModel session) return;
@@ -465,30 +545,53 @@ public partial class MainWindow : Window
     private void TerminalPane_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject source && FindVisualParent<Button>(source) is not null) return;
-        if (sender is not DependencyObject pane) return;
+        if (sender is not FrameworkElement pane) return;
+        // Clicking anywhere in a pane makes it the selected session, so its border lights up and the
+        // keyboard is aimed at its prompt.
+        if (pane.DataContext is TerminalSessionViewModel session) Vm.SelectedSession = session;
         var input = FindVisualChild<TextBox>(pane);
         if (input is not { IsEnabled: true }) return;
         Dispatcher.BeginInvoke(() => input.Focus(), DispatcherPriority.Input);
     }
 
-    // A split-pane header is a drag handle. The grid itself receives the drop and reorders its
-    // backing session collection, so the session process and its output remain intact.
-    private void TerminalPaneHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    // The tab strip is a plain ListBox over the same Sessions collection the split grid shows, so a
+    // drag-reorder here keeps both views in sync. A click below the drag threshold still selects the tab.
+    private void TerminalTab_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: TerminalSessionViewModel session }) return;
-        _terminalPaneDragOrigin = e.GetPosition(this);
-        _terminalPaneDragSession = session;
+        if (e.OriginalSource is not DependencyObject source || FindVisualParent<Button>(source) is not null) return;
+        _terminalTabDragOrigin = e.GetPosition(this);
+        _terminalTabDragSession = FindVisualParent<ListBoxItem>(source)?.DataContext as TerminalSessionViewModel;
     }
 
-    private void TerminalPaneHeader_MouseMove(object sender, MouseEventArgs e)
+    private void TerminalTab_PreviewMouseMove(object sender, MouseEventArgs e)
     {
-        if (_terminalPaneDragSession is null || e.LeftButton != MouseButtonState.Pressed) return;
+        if (_terminalTabDragSession is null || e.LeftButton != MouseButtonState.Pressed) return;
         var current = e.GetPosition(this);
-        if (Math.Abs(current.X - _terminalPaneDragOrigin.X) < SystemParameters.MinimumHorizontalDragDistance &&
-            Math.Abs(current.Y - _terminalPaneDragOrigin.Y) < SystemParameters.MinimumVerticalDragDistance) return;
-        var session = _terminalPaneDragSession;
-        _terminalPaneDragSession = null;
+        if (Math.Abs(current.X - _terminalTabDragOrigin.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(current.Y - _terminalTabDragOrigin.Y) < SystemParameters.MinimumVerticalDragDistance) return;
+        var session = _terminalTabDragSession;
+        _terminalTabDragSession = null;
         DragDrop.DoDragDrop((DependencyObject)sender, session, DragDropEffects.Move);
+    }
+
+    private void TerminalTab_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(typeof(TerminalSessionViewModel)) ? DragDropEffects.Move : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void TerminalTab_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(typeof(TerminalSessionViewModel)) is not TerminalSessionViewModel moving) return;
+        var sessions = Vm.Sessions;
+        var from = sessions.IndexOf(moving);
+        if (from < 0) return;
+        var to = e.OriginalSource is DependencyObject source && FindVisualParent<ListBoxItem>(source)?.DataContext is TerminalSessionViewModel target
+            ? sessions.IndexOf(target) : sessions.Count - 1;
+        if (to < 0 || from == to) return;
+        sessions.Move(from, to);
+        Vm.SelectedSession = moving;
+        e.Handled = true;
     }
 
     private static T? FindVisualParent<T>(DependencyObject source) where T : DependencyObject
@@ -503,6 +606,15 @@ public partial class MainWindow : Window
         Visual or System.Windows.Media.Media3D.Visual3D => VisualTreeHelper.GetParent(current),
         _ => LogicalTreeHelper.GetParent(current)
     };
+
+    // The nearest ancestor that actually has horizontal content to scroll and is allowed to.
+    private static ScrollViewer? FindHorizontalScrollViewer(DependencyObject? source)
+    {
+        for (var current = source; current is not null; current = ParentOf(current))
+            if (current is ScrollViewer viewer && viewer.ScrollableWidth > 0 && viewer.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled)
+                return viewer;
+        return null;
+    }
 
     private static T? FindVisualChild<T>(DependencyObject source) where T : DependencyObject
     {

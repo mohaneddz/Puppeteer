@@ -605,12 +605,13 @@ public sealed partial class MainViewModel
         if (pending.Length == 0) { Status = "Every project that has a doc is already linked to it."; return; }
 
         var guesses = pending.Count(x => x.Match!.Confidence == DocMatchConfidence.Suggested);
-        var answer = MessageBox.Show(
+        var confirmed = await ConfirmAsync(
+            "Link every project to its doc?",
             $"Link {pending.Length} project{(pending.Length == 1 ? "" : "s")} to the doc Puppeteer found for {(pending.Length == 1 ? "it" : "them")}?"
             + (guesses > 0 ? $"\n\n{guesses} of those are name near-misses rather than certain matches." : "")
             + "\n\nNo file is changed; you can unlink any of them afterwards.",
-            "Link every project to its doc?", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (answer != MessageBoxResult.Yes) return;
+            "Link", "Cancel");
+        if (!confirmed) return;
 
         var now = DateTimeOffset.UtcNow;
         foreach (var (project, match) in pending)
@@ -624,10 +625,10 @@ public sealed partial class MainViewModel
     {
         var targets = _allProjects.Where(DescribesItsOwnFolder).ToArray();
         if (targets.Length == 0) return;
-        var answer = MessageBox.Show(
+        if (!await ConfirmAsync(
+            "Sync docs with the repos?",
             $"Update the Location, Stack and Last activity lines in {targets.Length} docs from what is on disk?\n\nProse sections are not touched.",
-            "Sync docs with the repos?", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (answer != MessageBoxResult.Yes) return;
+            "Sync facts", "Cancel")) return;
 
         var written = 0;
         foreach (var project in targets)

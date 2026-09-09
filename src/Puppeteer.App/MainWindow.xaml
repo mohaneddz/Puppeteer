@@ -9,7 +9,7 @@
         Icon="Assets/icon.png" WindowStyle="None" ResizeMode="CanResize" TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True"
         PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop">
   <WindowChrome.WindowChrome>
-    <WindowChrome CaptionHeight="0" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"/>
+    <WindowChrome CaptionHeight="56" ResizeBorderThickness="6" CornerRadius="0" GlassFrameThickness="0"/>
   </WindowChrome.WindowChrome>
   <Window.Resources>
     <conv:EqualsMultiConverter x:Key="EqualsMulti"/>
@@ -74,8 +74,20 @@
 
     <!-- One terminal pane: prompt + output + input. Data context is a TerminalSessionViewModel. -->
     <DataTemplate x:Key="TerminalPane" DataType="{x:Type vm:TerminalSessionViewModel}">
-      <Border BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="5" Margin="2" Background="{StaticResource TerminalBgBrush}"
+      <Border CornerRadius="5" Margin="2" Background="{StaticResource TerminalBgBrush}"
               HorizontalAlignment="Stretch" VerticalAlignment="Stretch" PreviewMouseLeftButtonDown="TerminalPane_PreviewMouseLeftButtonDown">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="BorderBrush" Value="{StaticResource BorderSoftBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                <Setter Property="BorderThickness" Value="1.5"/>
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -85,7 +97,7 @@
           <!-- Only shown when panes are split: with a single pane the tab bar above already names the
                session and carries the same stop / restart / close actions. -->
           <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1" Padding="7,3"
-                  MouseLeftButtonDown="TerminalPaneHeader_MouseLeftButtonDown" MouseMove="TerminalPaneHeader_MouseMove"
+                  Tag="PaneDrag" Cursor="SizeAll" ToolTip="Drag to reorder · double-click to maximize"
                   Visibility="{Binding DataContext.TerminalSplit, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolVis}}">
             <Grid>
               <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -170,8 +182,7 @@
       </Grid.RowDefinitions>
 
       <!-- ============ FULL-WIDTH TITLE BAR ============ -->
-      <Border Grid.Row="0" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
-              MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+      <Border Grid.Row="0" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
         <Grid Margin="14,0,10,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto"/>
@@ -185,7 +196,7 @@
             <TextBlock Text="Puppeteer" FontFamily="{StaticResource DisplayFont}" FontSize="17" FontWeight="Bold" VerticalAlignment="Center" Margin="10,0,0,0"/>
           </StackPanel>
           <!-- Sidebar toggle -->
-          <Button Grid.Column="1" Style="{StaticResource IconButton}" Width="36" Height="36" Margin="8,0,0,0" ToolTip="Toggle sidebar"
+          <Button Grid.Column="1" WindowChrome.IsHitTestVisibleInChrome="True" Style="{StaticResource IconButton}" Width="36" Height="36" Margin="8,0,0,0" ToolTip="Toggle sidebar"
                   Command="{Binding ToggleSidebarCommand}">
             <Path Style="{StaticResource IconPath}" Width="15" Height="15"
                   Data="{Binding SidebarCollapsed, Converter={StaticResource PanelToggleIcon}, ConverterParameter=Left}"/>
@@ -193,7 +204,7 @@
           <!-- Search -->
           <!-- Stretch with a cap rather than a fixed Width, so a narrow window shrinks the search box
                instead of crushing the toolbar buttons on its right. -->
-          <Border Grid.Column="2" MaxWidth="480" HorizontalAlignment="Stretch" Height="38" Margin="16,0,16,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9">
+          <Border Grid.Column="2" WindowChrome.IsHitTestVisibleInChrome="True" MaxWidth="480" HorizontalAlignment="Stretch" Height="38" Margin="16,0,16,0" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9">
             <Grid Margin="12,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -212,7 +223,7 @@
             </Grid>
           </Border>
           <!-- Actions + window caption -->
-          <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+          <StackPanel Grid.Column="3" WindowChrome.IsHitTestVisibleInChrome="True" Orientation="Horizontal" VerticalAlignment="Center">
             <Button Command="{Binding AddRootCommand}" Height="38" Padding="15,0">
               <StackPanel Orientation="Horizontal">
                 <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="15" Height="15" Stroke="{StaticResource AccentBrush}"/>
@@ -277,14 +288,12 @@
               <controls:SidebarItem Icon="{StaticResource IconActivity}" Label="Running" ShowDot="True" Badge="{Binding RunningBadge}"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Running}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Running"/>
-              <controls:SidebarItem Icon="{StaticResource IconPlusCircle}" Label="Add Root"
-                                    Command="{Binding AddRootCommand}"/>
               <controls:SidebarItem Icon="{StaticResource IconSettings}" Label="Settings"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Settings}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Settings"/>
             </StackPanel>
             <!-- Folder tree -->
-            <Grid Grid.Row="1" Margin="13,18,8,0" Visibility="{Binding FolderTree.Count, Converter={StaticResource CountVis}}">
+            <Grid Grid.Row="1" Margin="13,18,8,0">
               <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -292,6 +301,10 @@
               <Grid Margin="5,0,5,6">
                 <TextBlock Text="FOLDERS" FontSize="10.5" FontWeight="SemiBold" Foreground="{StaticResource FaintBrush}" VerticalAlignment="Center"/>
                 <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                  <Button Style="{StaticResource IconButton}" Width="24" Height="24" Margin="0,0,4,0"
+                          ToolTip="Add root folder" AutomationProperties.Name="Add root folder" Command="{Binding AddRootCommand}">
+                    <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlus}" Width="13" Height="13"/>
+                  </Button>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" Padding="0" Margin="0,0,4,0"
                           ToolTip="{Binding FolderExpandToggleToolTip}" Command="{Binding ToggleFolderExpansionCommand}">
                     <Path Width="13" Height="13" Stroke="{StaticResource MutedTextBrush}">
@@ -353,9 +366,9 @@
               </TreeView>
             </Grid>
             <!-- Bottom running pill -->
-            <Border Grid.Row="2" Margin="16,10,16,16" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="12,9"
-                    Visibility="{Binding RunningBadge, Converter={StaticResource EmptyVis}}" Cursor="Hand"
-                    MouseLeftButtonUp="RunningPill_Click">
+            <Button Grid.Row="2" Margin="16,10,16,16" Padding="12,9" HorizontalContentAlignment="Stretch"
+                    Visibility="{Binding RunningBadge, Converter={StaticResource EmptyVis}}"
+                    Command="{Binding NavigateCommand}" CommandParameter="Running" ToolTip="View running terminal sessions">
               <Grid>
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                   <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" VerticalAlignment="Center"/>
@@ -366,7 +379,7 @@
                   <Path Style="{StaticResource IconPath}" Data="{StaticResource IconChevronRight}" Width="13" Height="13" Margin="8,0,0,0" Stroke="{StaticResource FaintBrush}"/>
                 </StackPanel>
               </Grid>
-            </Border>
+            </Button>
           </Grid>
         </Border>
 
@@ -536,7 +549,17 @@
                        ScrollViewer.VerticalScrollBarVisibility="Auto">
                 <ListBox.ItemTemplate>
                   <DataTemplate>
-                    <Border Style="{StaticResource PanelCard}" Padding="16" Margin="0,0,0,10">
+                    <Border Padding="16" Margin="0,0,0,10" Cursor="Hand">
+                      <Border.Style>
+                        <Style TargetType="Border" BasedOn="{StaticResource PanelCard}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True">
+                              <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                              <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
                       <Grid>
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition Width="Auto"/>
@@ -582,6 +605,13 @@
               <StackPanel Margin="26,20,26,22">
                 <TextBlock Text="Settings" Style="{StaticResource PageTitle}" Margin="0,0,0,4"/>
                 <TextBlock Text="Roots, startup behaviour, terminals and appearance." Style="{StaticResource MutedText}" Margin="0,0,0,22"/>
+                <TextBlock Text="Keyboard shortcuts" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
+                <TextBlock Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,22"
+                           Text="Ctrl+T: new terminal · Ctrl+W: close terminal · Ctrl+Shift+T: reopen closed terminal&#10;Ctrl+Tab / Ctrl+Shift+Tab: next / previous terminal · Ctrl+1–8: select tab · Ctrl+9: last tab&#10;Ctrl+F / Ctrl+K: search projects · Ctrl+R: rescan · Ctrl+`: show/hide terminals&#10;Reopen retains output and input history in this app session; programs and shell variables start fresh."/>
+
+                <!-- Two columns once there is room, one when the window is narrow -->
+                <UniformGrid Columns="{Binding ActualWidth, RelativeSource={RelativeSource Self}, Converter={StaticResource ColumnCount}, ConverterParameter=820}">
+                  <StackPanel Margin="0,0,13,0">
 
                 <TextBlock Text="Roots" Style="{StaticResource SectionTitle}" Margin="0,0,0,10"/>
                 <ItemsControl ItemsSource="{Binding Roots}" Margin="0,0,0,8">
@@ -589,11 +619,12 @@
                     <DataTemplate>
                       <Border Style="{StaticResource PanelCard}" Padding="14" Margin="0,0,0,8">
                         <Grid>
+                          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                           <StackPanel Orientation="Horizontal">
                             <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolder}" Width="16" Height="16" Stroke="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
-                            <TextBlock Text="{Binding Path}" VerticalAlignment="Center" Margin="12,0,0,0" FontWeight="Medium"/>
+                            <TextBlock Text="{Binding Path}" VerticalAlignment="Center" Margin="12,0,12,0" FontWeight="Medium" ToolTip="{Binding Path}"/>
                           </StackPanel>
-                          <Button HorizontalAlignment="Right" Content="Remove"
+                          <Button Grid.Column="1" HorizontalAlignment="Right" Content="Remove" ToolTip="Remove this root from the project library"
                                   Command="{Binding DataContext.RemoveRootCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}"/>
                         </Grid>
                       </Border>
@@ -625,10 +656,9 @@
                 <Border Style="{StaticResource SettingRow}">
                   <Grid>
                     <StackPanel Margin="0,0,20,0">
-                      <TextBlock Text="Minimize to the tray" Style="{StaticResource SettingLabel}"/>
-                      <TextBlock Text="Minimizing hides the window rather than leaving it on the taskbar. Running terminals keep running." Style="{StaticResource SettingHint}"/>
+                      <TextBlock Text="Minimize to the taskbar" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Minimizing keeps Puppeteer on the taskbar. Use the system tray icon to hide or show the window." Style="{StaticResource SettingHint}"/>
                     </StackPanel>
-                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding MinimizeToTray}"/>
                   </Grid>
                 </Border>
                 <Border Style="{StaticResource SettingRow}">
@@ -665,10 +695,9 @@
                 <Border Style="{StaticResource SettingRow}">
                   <Grid>
                     <StackPanel Margin="0,0,20,0">
-                      <TextBlock Text="Ask before quitting with sessions running" Style="{StaticResource SettingLabel}"/>
-                      <TextBlock Text="Quitting stops every terminal Puppeteer started." Style="{StaticResource SettingHint}"/>
+                      <TextBlock Text="Terminals close when you quit" Style="{StaticResource SettingLabel}"/>
+                      <TextBlock Text="Quitting stops every terminal automatically. Hiding to the tray keeps them running." Style="{StaticResource SettingHint}"/>
                     </StackPanel>
-                    <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding ConfirmExitWithSessions}"/>
                   </Grid>
                 </Border>
 
@@ -714,7 +743,10 @@
                   </Grid>
                 </Border>
 
-                <TextBlock Text="AI categorization (Groq)" Style="{StaticResource SectionTitle}" Margin="0,26,0,6"/>
+                  </StackPanel>
+                  <StackPanel Margin="13,0,0,0">
+
+                <TextBlock Text="AI categorization (Groq)" Style="{StaticResource SectionTitle}" Margin="0,0,0,6"/>
                 <TextBlock Text="Used to label projects as Personal / Client / Hackathon / Course from their README and path. Leave blank to use the .env key in development."
                            Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
                 <!-- Masked by default: this sits on a page the user may well have open while sharing
@@ -788,6 +820,9 @@
                   <Run Text="Puppeteer"/> <Run Text="{Binding Version, Mode=OneWay}"/> <LineBreak/>
                   <Run Text="A focused Windows project hub — WPF and .NET 10."/>
                 </TextBlock>
+
+                  </StackPanel>
+                </UniformGrid>
               </StackPanel>
             </ScrollViewer>
 
@@ -813,7 +848,7 @@
               <Grid.RowDefinitions>
                 <RowDefinition Height="56"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="32"/>
+                <RowDefinition Height="44"/>
               </Grid.RowDefinitions>
               <!-- Header -->
               <Border Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,0,0,1">
@@ -835,6 +870,8 @@
                     <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                                   VerticalAlignment="Center" CanContentScroll="False">
                     <ListBox Style="{StaticResource BareList}" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession}" VerticalAlignment="Center" Background="Transparent"
+                             AllowDrop="True" PreviewMouseLeftButtonDown="TerminalTab_PreviewMouseLeftButtonDown" PreviewMouseMove="TerminalTab_PreviewMouseMove"
+                             DragOver="TerminalTab_DragOver" Drop="TerminalTab_Drop"
                              ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled">
                       <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ListBox.ItemsPanel>
                       <ListBox.ItemContainerStyle>
@@ -847,9 +884,13 @@
                                 <Border x:Name="Tab" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="7" Padding="10,5">
                                   <StackPanel Orientation="Horizontal">
                                     <Border Width="22" Height="22" Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderStrongBrush}"
-                                            BorderThickness="1" CornerRadius="5" VerticalAlignment="Center"
+                                            BorderThickness="1" CornerRadius="{Binding Project, Converter={StaticResource ProjectIconShape}}" VerticalAlignment="Center"
                                             ToolTip="{Binding ProjectTechnology}">
-                                      <Image Source="{Binding ProjectTechnology, Converter={StaticResource TechnologyIcon}}" Width="15" Height="15" Stretch="Uniform"/>
+                                      <Rectangle RadiusX="{Binding Project, Converter={StaticResource ProjectIconRadius}}" RadiusY="{Binding Project, Converter={StaticResource ProjectIconRadius}}">
+                                        <Rectangle.Fill>
+                                          <ImageBrush ImageSource="{Binding Project, Converter={StaticResource ProjectIcon}}" Stretch="Uniform"/>
+                                        </Rectangle.Fill>
+                                      </Rectangle>
                                     </Border>
                                     <TextBlock Text="{Binding Name}" Margin="7,0,0,0" VerticalAlignment="Center" FontSize="12.5" FontFamily="{StaticResource MonoFont}" Foreground="{StaticResource TextDimBrush}"/>
                                     <Button Style="{StaticResource IconButton}" Width="18" Height="18" Margin="7,0,-2,0" ToolTip="Close tab"
@@ -887,23 +928,73 @@
                            Visibility="{Binding SelectedSession, Converter={StaticResource NullVis}, ConverterParameter=Inverse}"/>
                 <ContentControl Content="{Binding SelectedSession}" ContentTemplate="{StaticResource TerminalPane}"
                                 Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
-                <controls:TerminalSplitGrid Sessions="{Binding Sessions}" Columns="{Binding SplitColumns}"
-                                            Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}}"
-                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                <ScrollViewer
+                              Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}}">
+                  <ScrollViewer.Style>
+                    <Style TargetType="ScrollViewer">
+                      <Setter Property="VerticalScrollBarVisibility" Value="Disabled"/>
+                      <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding TerminalScrollable}" Value="True">
+                          <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding TerminalHorizontalScrollable}" Value="True">
+                          <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </ScrollViewer.Style>
+                  <controls:TerminalSplitGrid Sessions="{Binding Sessions}" Columns="{Binding SplitColumns}" Scrollable="{Binding TerminalScrollable}" HorizontalScrollable="{Binding TerminalHorizontalScrollable}"
+                                              ViewportWidth="{Binding ViewportWidth, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+                                              ViewportHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}"
+                                              HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                </ScrollViewer>
               </Grid>
               <Border Grid.Row="2" Background="{StaticResource SidebarBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="0,1,0,0" Padding="8,3">
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                  <ComboBox ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}" Width="118" Height="24" FontSize="11.5"/>
+                  <ComboBox ItemsSource="{Binding Shells}" SelectedItem="{Binding DefaultShell}" Width="165" Height="36" FontSize="12" ToolTip="Shell used for new terminals"/>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" Margin="5,0,0,0" ToolTip="New shell" Command="{Binding NewSessionCommand}">
                     <Path Style="{StaticResource IconPath}" Data="{StaticResource IconTerminal}" Width="12" Height="12"/>
                   </Button>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Split panes" Command="{Binding ToggleSplitCommand}">
                     <Path Style="{StaticResource IconPath}" Data="{StaticResource IconSplit}" Width="12" Height="12" Stroke="{Binding TerminalSplit, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
                   </Button>
+                  <StackPanel Orientation="Horizontal" Visibility="{Binding TerminalSplit, Converter={StaticResource BoolVis}}">
+                  <Button Width="24" Height="24" Command="{Binding ToggleTerminalScrollableCommand}" AutomationProperties.Name="Vertical terminal scrolling">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                        <Setter Property="ToolTip" Value="Vertical scrolling: off — enable to resize rows independently"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding TerminalScrollable}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter Property="ToolTip" Value="Vertical scrolling: on — disable to fit rows to screen height"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                    <Path Style="{StaticResource IconPath}" Data="M8 7L12 3L16 7 M12 3V21 M8 17L12 21L16 17 M3 9V15 M21 9V15"
+                          Width="14" Height="14" Stroke="{Binding TerminalScrollable, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+                  </Button>
+                  <Button Width="24" Height="24" Command="{Binding ToggleTerminalHorizontalScrollableCommand}" AutomationProperties.Name="Horizontal terminal scrolling">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                        <Setter Property="ToolTip" Value="Horizontal scrolling: off — enable to resize columns independently"/>
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding TerminalHorizontalScrollable}" Value="True">
+                            <Setter Property="Background" Value="{StaticResource AccentSoftBrush}"/>
+                            <Setter Property="ToolTip" Value="Horizontal scrolling: on — disable to fit columns to screen width"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                    <Path Style="{StaticResource IconPath}" Data="M7 8L3 12L7 16 M3 12H21 M17 8L21 12L17 16 M9 3H15 M9 21H15"
+                          Width="14" Height="14" Stroke="{Binding TerminalHorizontalScrollable, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
+                  </Button>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Automatic split layout" Command="{Binding SetSplitColumnsCommand}" CommandParameter="0" Content="A" FontSize="11"/>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="One split column" Command="{Binding SetSplitColumnsCommand}" CommandParameter="1" Content="1" FontSize="11"/>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Two split columns" Command="{Binding SetSplitColumnsCommand}" CommandParameter="2" Content="2" FontSize="11"/>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Three split columns" Command="{Binding SetSplitColumnsCommand}" CommandParameter="3" Content="3" FontSize="11"/>
+                  </StackPanel>
                   <Button Style="{StaticResource IconButton}" Width="24" Height="24" ToolTip="Fullscreen terminal" Command="{Binding ToggleTerminalMaxCommand}">
                     <Path Style="{StaticResource IconPath}" Data="{StaticResource IconGrid}" Width="12" Height="12" Stroke="{Binding TerminalMaximized, Converter={StaticResource ViewStroke}, ConverterParameter=True}"/>
                   </Button>
@@ -1031,7 +1122,54 @@
                            Margin="2,10,0,0" TextTrimming="CharacterEllipsis"/>
               </StackPanel>
 
-              <controls:MarkdownViewer Grid.Row="2" Markdown="{Binding ReaderText}" BasePath="{Binding ReaderBasePath}"/>
+              <Grid Grid.Row="2">
+                <!-- State-doc prose is read as a small set of focused notes. -->
+                <Grid Visibility="{Binding IsReaderNotes, Converter={StaticResource BoolVis}}">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="148"/>
+                    <ColumnDefinition Width="14"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+
+                  <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}"
+                          BorderThickness="1" CornerRadius="9" Padding="6">
+                    <ItemsControl ItemsSource="{Binding ReaderNoteSections}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Button Padding="10,8" Margin="0,0,0,3" HorizontalContentAlignment="Left"
+                                  Command="{Binding DataContext.SetReaderNoteSectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                  CommandParameter="{Binding}">
+                            <TextBlock Text="{Binding}" FontSize="12">
+                              <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                  <Setter Property="Foreground" Value="{StaticResource MutedTextBrush}"/>
+                                  <Style.Triggers>
+                                    <DataTrigger Value="True">
+                                      <DataTrigger.Binding>
+                                        <MultiBinding Converter="{StaticResource EqualsMulti}">
+                                          <Binding/>
+                                          <Binding Path="DataContext.ReaderNoteSection" RelativeSource="{RelativeSource AncestorType=ItemsControl}"/>
+                                        </MultiBinding>
+                                      </DataTrigger.Binding>
+                                      <Setter Property="Foreground" Value="{StaticResource AccentBrush}"/>
+                                      <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                  </Style.Triggers>
+                                </Style>
+                              </TextBlock.Style>
+                            </TextBlock>
+                          </Button>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Border>
+
+                  <controls:MarkdownViewer Grid.Column="2" Markdown="{Binding ReaderText}" BasePath="{Binding ReaderBasePath}"/>
+                </Grid>
+
+                <controls:MarkdownViewer Markdown="{Binding ReaderText}" BasePath="{Binding ReaderBasePath}"
+                                         Visibility="{Binding IsReaderNotes, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+              </Grid>
             </Grid>
           </Border>
         </Border>
@@ -1108,6 +1246,32 @@
                                           Visibility="{Binding FieldEditorMode, Converter={StaticResource PageVis}, ConverterParameter=Preview}"/>
               </Grid>
             </Grid>
+          </Border>
+        </Border>
+      </Grid>
+
+      <!-- ============ CONFIRM DIALOG ============ -->
+      <Grid Grid.RowSpan="3" Visibility="{Binding DialogOpen, Converter={StaticResource BoolVis}}">
+        <Border Background="#B3000000" MouseLeftButtonDown="DialogOverlay_MouseLeftButtonDown">
+          <Border MaxWidth="460" MinWidth="360" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="26,24,26,22"
+                  Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderStrongBrush}" BorderThickness="1" CornerRadius="14"
+                  MouseLeftButtonDown="DialogModal_MouseLeftButtonDown">
+            <Border.Effect>
+              <DropShadowEffect BlurRadius="36" ShadowDepth="0" Opacity="0.5" Color="Black"/>
+            </Border.Effect>
+            <StackPanel>
+              <TextBlock Text="{Binding DialogTitle}" FontSize="17" FontWeight="SemiBold" Foreground="{StaticResource TextBrush}"/>
+              <TextBlock Text="{Binding DialogMessage}" Style="{StaticResource MutedText}" FontSize="13" TextWrapping="Wrap" Margin="0,12,0,0" LineHeight="19"/>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0">
+                <Button Content="{Binding DialogCancelText}" Command="{Binding DialogCancelCommand}" Padding="16,8" MinWidth="90"/>
+                <Button Content="{Binding DialogConfirmText}" Command="{Binding DialogConfirmCommand}" Style="{StaticResource PrimaryButton}"
+                        Padding="16,8" MinWidth="90" Margin="10,0,0,0"
+                        Visibility="{Binding DialogDanger, Converter={StaticResource BoolVis}, ConverterParameter=Inverse}"/>
+                <Button Content="{Binding DialogConfirmText}" Command="{Binding DialogConfirmCommand}" Style="{StaticResource DangerButton}"
+                        Padding="16,8" MinWidth="90" Margin="10,0,0,0"
+                        Visibility="{Binding DialogDanger, Converter={StaticResource BoolVis}}"/>
+              </StackPanel>
+            </StackPanel>
           </Border>
         </Border>
       </Grid>
