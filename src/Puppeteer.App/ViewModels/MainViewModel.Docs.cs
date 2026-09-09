@@ -19,6 +19,10 @@ public sealed partial class MainViewModel
     private readonly Dictionary<Guid, DocMatch> _docMatches = [];
     private readonly Dictionary<Guid, DocMatch> _docSuggestions = [];
     private readonly Dictionary<Guid, ProjectDocLink> _docLinks = [];
+    // Docs the LLM matched to a project, and the set it has already been asked about (matched or not),
+    // so a reload does not re-spend credits on the same leftovers. Both reset when the folders change.
+    private readonly Dictionary<Guid, string> _aiMatches = [];
+    private readonly HashSet<Guid> _aiTried = [];
     private Dictionary<Guid, ProjectStateSnapshot> _snapshots = [];
     private ProjectIndexLookup? _index;
     private readonly Dictionary<Guid, ProjectIndexEntry> _indexRows = [];
@@ -104,7 +108,7 @@ public sealed partial class MainViewModel
         AddDocsFolderCommand = new(_ => AddDocsFolder());
         RemoveDocsFolderCommand = new(p => RemoveDocsFolder(p as string), p => p is string);
         OpenDocsFolderCommand = new(p => { if ((p as string ?? _vault?.VaultPath) is { Length: > 0 } path) _launcher.OpenFolder(path); }, _ => HasVault);
-        ReloadDocsCommand = new(_ => LoadDocsAsync());
+        ReloadDocsCommand = new(_ => { _aiMatches.Clear(); _aiTried.Clear(); return LoadDocsAsync(); });
         OpenDocCommand = new(p => OpenDoc((p as ProjectDocEntry)?.Doc ?? SelectedDoc), p => ((p as ProjectDocEntry)?.Doc ?? SelectedDoc) is not null);
         CreateDocCommand = new(p => CreateDocAsync((p as ProjectDocEntry)?.Project ?? SelectedProject), _ => HasVault);
         LinkDocCommand = new(_ => LinkDocAsync(), _ => HasVault && SelectedProject is not null);
@@ -156,6 +160,9 @@ public sealed partial class MainViewModel
     private void OpenVault()
     {
         if (_vault is null) return;
+        // A changed folder set is a fresh library — re-evaluate everything the LLM had decided.
+        _aiMatches.Clear();
+        _aiTried.Clear();
         _vault.Changed -= OnVaultChanged;
         _vault.Open(DocsFolders.ToArray());
         _vault.Changed += OnVaultChanged;
@@ -221,6 +228,7 @@ public sealed partial class MainViewModel
             LoadSelectedDoc(fromDisk: true);
             RefreshReader();
             if (external) Status = "Docs folder changed on disk — reloaded.";
+            _ = RunAiMatchingAsync();
         }
         catch (Exception e) { Status = $"Couldn't read the docs folder: {e.Message}"; }
         finally
@@ -311,6 +319,62 @@ public sealed partial class MainViewModel
             _docMatches[project.Id] = new(doc, DocMatchConfidence.Index, $"the index links “{row.Name}” to this doc");
             _docSuggestions.Remove(project.Id);
         }
+
+        // Fold in what the LLM matched, for projects the heuristics left undocumented. It never
+        // overrides a heuristic match, and it cannot claim a doc another project already holds.
+        foreach (var (projectId, docPath) in _aiMatches)
+        {
+            if (_docMatches.ContainsKey(projectId)) continue;
+            if (_allProjects.All(p => p.Id != projectId)) continue;
+            if (_docs.FirstOrDefault(d => string.Equals(d.FilePath, docPath, StringComparison.OrdinalIgnoreCase)) is not { } doc) continue;
+            if (_docMatches.Values.Any(m => string.Equals(m.Doc.FilePath, docPath, StringComparison.OrdinalIgnoreCase))) continue;
+            _docMatches[projectId] = new(doc, DocMatchConfidence.Ai, "matched by AI");
+            _docSuggestions.Remove(projectId);
+        }
+    }
+
+    private bool _aiMatching;
+    /// <summary>Asks the LLM to place the projects the heuristics left undocumented. Runs off the load
+    /// path so it never blocks the page, spends nothing when there is no key or nothing is unmatched,
+    /// and never asks about the same project twice in a session.</summary>
+    private async Task RunAiMatchingAsync()
+    {
+        if (_aiMatching || _vault is null || _docs.Count == 0) return;
+        var key = string.IsNullOrWhiteSpace(_groqApiKey) ? _config.GroqApiKeyFromEnv : _groqApiKey;
+        if (string.IsNullOrWhiteSpace(key)) return;
+        var unmatched = _allProjects.Where(p => !_docMatches.ContainsKey(p.Id) && !_aiTried.Contains(p.Id)).ToArray();
+        if (unmatched.Length == 0) return;
+
+        _aiMatching = true;
+        try
+        {
+            var docs = _docs.ToArray();
+            var hints = BuildIndexHints(unmatched);
+            var matches = await _docMatcher.MatchAsync(unmatched, docs, hints, key!);
+            foreach (var project in unmatched) _aiTried.Add(project.Id);
+            foreach (var (projectId, docPath) in matches) _aiMatches[projectId] = docPath;
+            if (matches.Count == 0) return;
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                MatchDocs();
+                RebuildDocEntries();
+                LoadSelectedDoc();
+                Raise(nameof(DocsSummary));
+                Status = $"AI matched {matches.Count} doc{(matches.Count == 1 ? "" : "s")} to a project";
+            });
+        }
+        catch { /* leave the heuristics' result in place */ }
+        finally { _aiMatching = false; }
+    }
+
+    private Dictionary<Guid, string> BuildIndexHints(IEnumerable<Project> projects)
+    {
+        var hints = new Dictionary<Guid, string>();
+        if (_index is null) return hints;
+        foreach (var project in projects)
+            if (_indexRows.TryGetValue(project.Id, out var row) && _index.DocPathOf(row) is { } docPath)
+                hints[project.Id] = Path.GetFileName(docPath);
+        return hints;
     }
 
     private void RebuildDocEntries()

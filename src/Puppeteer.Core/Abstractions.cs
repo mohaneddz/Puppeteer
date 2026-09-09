@@ -91,6 +91,22 @@ public interface IProjectClassifier
     Task<string?> ClassifyAsync(string projectPath, string apiKey, CancellationToken cancellationToken = default);
 }
 
+/// <summary>Matches state docs to projects the offline heuristics could not place — folders renamed
+/// away from their doc, an app living in a subfolder of the documented folder, and so on. Implementations
+/// may call an LLM.</summary>
+public interface IDocMatcher
+{
+    /// <summary>Returns projectId -> the doc file path that best describes it. A project with no
+    /// confident match is simply absent. <paramref name="indexHints"/> maps a projectId to the doc
+    /// name the library index associates with it, a strong hint the model may use or override.</summary>
+    Task<IReadOnlyDictionary<Guid, string>> MatchAsync(
+        IReadOnlyList<Project> projects,
+        IReadOnlyList<ProjectDoc> docs,
+        IReadOnlyDictionary<Guid, string> indexHints,
+        string apiKey,
+        CancellationToken cancellationToken = default);
+}
+
 public interface IIconDiscoveryService
 {
     Task<IReadOnlyList<IconCandidate>> FindAsync(string projectPath, CancellationToken cancellationToken = default);

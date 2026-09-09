@@ -43,6 +43,7 @@ public sealed class ProjectDocEntry(Project project, ProjectDoc? doc, DocMatchCo
         DocMatchConfidence.FolderName => "matched on folder name",
         DocMatchConfidence.Name => "matched on name",
         DocMatchConfidence.Ancestor => "part of a documented folder",
+        DocMatchConfidence.Ai => "matched by AI",
         _ => "",
     };
 

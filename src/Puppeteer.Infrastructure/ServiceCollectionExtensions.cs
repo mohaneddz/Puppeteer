@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         .AddSingleton<IFileSystemWatchService, FileSystemWatchService>()
         .AddSingleton<IProjectDocVault, ProjectDocVault>()
         .AddSingleton<IProjectClassifier>(_ => new GroqProjectClassifier(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(20) }))
+        .AddSingleton<IDocMatcher>(_ => new GroqDocMatcher(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(40) }))
         .AddSingleton<IDocFieldGenerator>(_ => new GroqDocFieldGenerator(new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(30) }))
         .AddSingleton<ProjectSearchService>();
 }
