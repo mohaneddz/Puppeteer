@@ -74,7 +74,8 @@ public static class ProjectCategoryRules
 public sealed class ProjectSearchService
 {
     public IReadOnlyList<Project> Filter(IEnumerable<Project> projects, string? query,
-        string? type = null, string? technology = null, string? category = null, IReadOnlySet<Guid>? runningProjectIds = null)
+        string? type = null, string? technology = null, string? category = null, IReadOnlySet<Guid>? runningProjectIds = null,
+        string? status = null)
     {
         var terms = (query ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return projects.Where(project =>
@@ -82,8 +83,9 @@ public sealed class ProjectSearchService
             if (IsSet(type) && !ProjectTypeRules.Of(project).Equals(type, StringComparison.OrdinalIgnoreCase)) return false;
             if (IsSet(technology) && !project.Technologies.Any(t => t.Equals(technology, StringComparison.OrdinalIgnoreCase))) return false;
             if (IsSet(category) && !string.Equals(project.Category ?? "Other", category, StringComparison.OrdinalIgnoreCase)) return false;
+            if (IsSet(status) && !string.Equals(project.Status ?? "Not set", status, StringComparison.OrdinalIgnoreCase)) return false;
 
-            var searchable = string.Join(' ', project.Name, project.Path, project.PrimaryTechnology, project.Category ?? "",
+            var searchable = string.Join(' ', project.Name, project.Path, project.PrimaryTechnology, project.Category ?? "", project.Status ?? "",
                 string.Join(' ', project.Technologies), string.Join(' ', project.Hierarchy));
             return terms.All(term => term.Equals("running", StringComparison.OrdinalIgnoreCase)
                 ? runningProjectIds?.Contains(project.Id) == true

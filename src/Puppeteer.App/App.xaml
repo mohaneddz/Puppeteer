@@ -8,6 +8,8 @@
   <conv:CountVisibilityConverter x:Key="CountVis"/>
   <conv:ProjectStatusBrushConverter x:Key="StatusBrush"/>
   <conv:ProjectStatusVisibilityConverter x:Key="StatusVis"/>
+  <conv:LifecycleStatusIconConverter x:Key="LifecycleStatusIcon"/>
+  <conv:LifecycleStatusBrushConverter x:Key="LifecycleStatusBrush"/>
   <conv:TechIconBrushConverter x:Key="TechBrush"/>
   <conv:TechIconTintConverter x:Key="TechTint"/>
   <conv:TechMonogramConverter x:Key="TechMono"/>

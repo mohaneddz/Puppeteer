@@ -100,6 +100,9 @@
                      TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,2,0,0">
+          <Path Style="{StaticResource IconPath}" Data="{Binding Converter={StaticResource LifecycleStatusIcon}}" Width="14" Height="14"
+                Stroke="{Binding Converter={StaticResource LifecycleStatusBrush}}" Margin="0,0,8,0"
+                ToolTip="{Binding Status}" Visibility="{Binding Status, Converter={StaticResource NullVis}}"/>
           <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="13" Height="13" Stroke="{StaticResource SuccessBrush}" Margin="0,0,7,0"
                 ToolTip="Git repository" Visibility="{Binding Git, Converter={StaticResource NullVis}}"/>
           <Path Data="{StaticResource IconStar}" Fill="{StaticResource AccentBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,6,0"

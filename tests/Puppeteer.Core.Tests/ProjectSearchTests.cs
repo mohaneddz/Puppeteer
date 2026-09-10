@@ -8,6 +8,8 @@ public sealed class ProjectSearchTests
  [Fact] public void TypeFilterMatchesByStack(){var result=new ProjectSearchService().Filter([Mobile,Desktop],null,type:"Desktop");Assert.Single(result);Assert.Equal("Yoink",result[0].Name);}
  [Fact] public void TechnologyFilterMatchesExactTech(){var result=new ProjectSearchService().Filter([Mobile,Desktop],null,technology:"Rust");Assert.Single(result);Assert.Equal("Yoink",result[0].Name);}
  [Fact] public void CategoryFilterMatchesStoredCategory(){var result=new ProjectSearchService().Filter([Mobile,Desktop],null,category:"Client");Assert.Single(result);Assert.Equal("Yoink",result[0].Name);}
+ [Fact] public void StatusFilterMatchesLifecycleStatus(){var result=new ProjectSearchService().Filter([Mobile with{Status="Done"},Desktop with{Status="MVP"}],null,status:"MVP");Assert.Single(result);Assert.Equal("Yoink",result[0].Name);}
+ [Fact] public void StatusFilterCanFindUnsetProjects(){var result=new ProjectSearchService().Filter([Mobile,Desktop with{Status="Done"}],null,status:"Not set");Assert.Single(result);Assert.Equal("PharmaTouch",result[0].Name);}
  [Fact] public void RunningKeywordUsesSessionIndex(){var result=new ProjectSearchService().Filter([Mobile,Desktop],"running mobile",runningProjectIds:new HashSet<Guid>{Mobile.Id});Assert.Single(result);Assert.Equal(Mobile.Id,result[0].Id);}
  [Fact] public void BuildTypesReturnsPresentProductTypes()
  {

@@ -85,6 +85,44 @@ public sealed class ProjectStatusVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
 }
 
+/// <summary>Maps the user-selected lifecycle status to a compact, recognizable icon.</summary>
+public sealed class LifecycleStatusIconConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var status = value is Project project ? project.Status : value?.ToString();
+        var key = status switch
+        {
+            "Ongoing" => "IconStatusOngoing",
+            "MVP" => "IconStatusMvp",
+            "Done" => "IconStatusDone",
+            "Archived" => "IconArchive",
+            "Cancelled" => "IconStatusCancelled",
+            _ => "IconStatusUnset",
+        };
+        return Application.Current.Resources[key];
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
+public sealed class LifecycleStatusBrushConverter : IValueConverter
+{
+    public object Convert(object? value, Type t, object? parameter, CultureInfo c)
+    {
+        var status = value is Project project ? project.Status : value?.ToString();
+        return ProjectStatusBrushConverter.TryBrush(status switch
+        {
+            "Ongoing" => "AccentBrush",
+            "MVP" => "InfoBrush",
+            "Done" => "SuccessBrush",
+            "Cancelled" => "DangerBrush",
+            "Archived" => "MutedTextBrush",
+            _ => "FaintBrush",
+        });
+    }
+    public object ConvertBack(object? value, Type t, object? parameter, CultureInfo c) => Binding.DoNothing;
+}
+
 /// <summary>Amber when the current view mode matches the parameter, muted otherwise.</summary>
 public sealed class ViewStrokeConverter : IValueConverter
 {

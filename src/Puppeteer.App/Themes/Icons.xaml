@@ -26,6 +26,11 @@
   <Geometry x:Key="IconStop">M7 7h10v10H7z</Geometry>
   <Geometry x:Key="IconStar">M12 3l2.6 5.3 5.9 0.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-0.9z</Geometry>
   <Geometry x:Key="IconArchive">M3 5h18v4H3z M5 9v11h14V9 M10 13h4</Geometry>
+  <Geometry x:Key="IconStatusUnset">M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M8 12h8</Geometry>
+  <Geometry x:Key="IconStatusOngoing">M20 12a8 8 0 1 1-2.34-5.66 M20 4v6h-6</Geometry>
+  <Geometry x:Key="IconStatusMvp">M14 4c3-1 5-1 6-1 0 1 0 3-1 6l-5 5-4-1-1-4 5-5z M10 14l-4 4 M7 13l-3 1-1 4 4-1 M11 17l-1 4 4-1 1-3</Geometry>
+  <Geometry x:Key="IconStatusDone">M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M8 12l3 3 5-6</Geometry>
+  <Geometry x:Key="IconStatusCancelled">M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0 M9 9l6 6 M15 9l-6 6</Geometry>
   <Geometry x:Key="IconEyeOff">M3 3l18 18 M10.6 10.6a2 2 0 0 0 2.8 2.8 M9.9 4.2A10.8 10.8 0 0 1 12 4c5 0 9 5 9 8a10.8 10.8 0 0 1-2 3.5 M6.6 6.6C4.4 8 3 10.2 3 12c0 3 4 8 9 8 1.4 0 2.7-.4 3.8-1</Geometry>
   <Geometry x:Key="IconDoc">M6 3h8l4 4v14H6z M14 3v4h4 M9 12h6 M9 16h6</Geometry>
   <Geometry x:Key="IconWindowMaximize">M4 4H16V16H4Z</Geometry>

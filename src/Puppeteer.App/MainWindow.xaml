@@ -514,6 +514,20 @@
                     <ComboBox ItemsSource="{Binding CategoryOptions}" SelectedItem="{Binding SelectedCategory}" Width="150" Height="36"/>
                   </StackPanel>
                   <StackPanel Margin="14,0,0,0">
+                    <TextBlock Text="Status" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
+                    <ComboBox ItemsSource="{Binding StatusFilterOptions}" SelectedItem="{Binding SelectedStatus}" Width="130" Height="36">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                          <StackPanel Orientation="Horizontal">
+                            <Path Data="{Binding Converter={StaticResource LifecycleStatusIcon}}" Stroke="{Binding Converter={StaticResource LifecycleStatusBrush}}"
+                                  StrokeThickness="1.8" Width="13" Height="13" Stretch="Uniform" Margin="0,0,7,0"/>
+                            <TextBlock Text="{Binding}"/>
+                          </StackPanel>
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                  </StackPanel>
+                  <StackPanel Margin="14,0,0,0">
                     <TextBlock Text="Show" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
                     <ComboBox ItemsSource="{Binding SpecialFilters}" SelectedItem="{Binding SelectedSpecial}" Width="150" Height="36"/>
                   </StackPanel>

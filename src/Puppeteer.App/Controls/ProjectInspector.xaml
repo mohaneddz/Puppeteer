@@ -54,7 +54,7 @@
                    Visibility="{Binding SelectedProject, Converter={StaticResource StatusVis}}"/>
         </Grid>
 
-        <!-- Type / Category meta -->
+        <!-- Type / Category / Status meta -->
         <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
           <Border Background="{StaticResource ChipBrush}" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="6" Padding="9,4" Margin="0,0,7,0">
             <TextBlock Text="{Binding SelectedProject, Converter={StaticResource ProjectType}}" FontSize="11.5" Foreground="{StaticResource TextDimBrush}"/>
@@ -63,6 +63,18 @@
                   Visibility="{Binding SelectedProject.Category, Converter={StaticResource NullVis}}">
             <TextBlock Text="{Binding SelectedProject.Category}" FontSize="11.5" Foreground="{StaticResource AccentBrush}"/>
           </Border>
+          <ComboBox ItemsSource="{Binding ProjectStatusOptions}" SelectedItem="{Binding SelectedProjectStatus}"
+                    Width="112" Height="28" Margin="7,0,0,0" ToolTip="Project status">
+            <ComboBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Orientation="Horizontal">
+                  <Path Data="{Binding Converter={StaticResource LifecycleStatusIcon}}" Stroke="{Binding Converter={StaticResource LifecycleStatusBrush}}"
+                        StrokeThickness="1.8" Width="13" Height="13" Stretch="Uniform" Margin="0,0,7,0"/>
+                  <TextBlock Text="{Binding}" FontSize="11.5"/>
+                </StackPanel>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
         </StackPanel>
 
         <!-- Name -->
