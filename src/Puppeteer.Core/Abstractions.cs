@@ -23,6 +23,7 @@ public interface IProjectRepository
     Task SetProjectIconFillAsync(Guid projectId, bool fill, CancellationToken cancellationToken = default);
     Task SetProjectIconShapeAsync(Guid projectId, string shape, CancellationToken cancellationToken = default);
     Task SetProjectCategoryAsync(Guid projectId, string? category, CancellationToken cancellationToken = default);
+    Task SetProjectStatusAsync(Guid projectId, string? status, CancellationToken cancellationToken = default);
     Task SetProjectOpenedAsync(Guid projectId, DateTimeOffset openedAt, CancellationToken cancellationToken = default);
     Task<string?> GetSettingAsync(string key, CancellationToken cancellationToken = default);
     Task SetSettingAsync(string key, string? value, CancellationToken cancellationToken = default);

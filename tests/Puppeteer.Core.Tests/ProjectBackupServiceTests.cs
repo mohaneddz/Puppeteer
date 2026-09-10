@@ -34,6 +34,22 @@ public sealed class ProjectBackupServiceTests : IDisposable
         Assert.Equal("state", await repository.GetSettingAsync("Pinned"));
     }
 
+    [Fact]
+    public async Task Project_status_is_remembered_across_rescans()
+    {
+        Directory.CreateDirectory(_directory);
+        using var repository = new SqliteProjectRepository(Path.Combine(_directory, "puppeteer.db"));
+        await repository.InitializeAsync();
+        var root = new RootFolder(Guid.NewGuid(), Path.Combine(_directory, "projects"), DateTimeOffset.UtcNow);
+        var project = new Project(Guid.NewGuid(), "Atlas", Path.Combine(root.Path, "Atlas"), root.Id, "C#", ["C#"], [], []);
+        await repository.UpsertProjectsAsync([project]);
+
+        await repository.SetProjectStatusAsync(project.Id, "MVP");
+        await repository.UpsertProjectsAsync([project]);
+
+        Assert.Equal("MVP", Assert.Single(await repository.GetProjectsAsync()).Status);
+    }
+
     public void Dispose()
     {
         try { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); } catch { }

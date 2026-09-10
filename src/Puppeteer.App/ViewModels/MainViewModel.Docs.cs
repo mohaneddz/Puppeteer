@@ -526,6 +526,28 @@ public sealed partial class MainViewModel
         }
     }
 
+    /// <summary>Lifecycle state chosen in the inspector. It is intentionally separate from a
+    /// project's archived library location, so an archived project can still retain its last status.</summary>
+    public string SelectedProjectStatus
+    {
+        get => _selectedProject?.Status ?? "Not set";
+        set
+        {
+            if (_selectedProject is not { } project) return;
+            var status = value == "Not set" ? null : value;
+            if (string.Equals(project.Status, status, StringComparison.Ordinal)) return;
+            var updated = project with { Status = status };
+            _selectedProject = updated;
+            var at = _allProjects.FindIndex(p => p.Id == updated.Id);
+            if (at >= 0) _allProjects[at] = updated;
+            _ = QueueWriteAsync(() => _repository.SetProjectStatusAsync(updated.Id, status));
+            Raise(nameof(SelectedProjectStatus));
+            Raise(nameof(SelectedProject));
+            Refresh();
+            Status = status is null ? $"Cleared status for {updated.Name}" : $"Status set to {status}";
+        }
+    }
+
     private ProjectDocEntry? DocEntryFor(Project? project) =>
         project is null ? null : DocEntries.FirstOrDefault(e => e.Project.Id == project.Id);
 
@@ -543,6 +565,7 @@ public sealed partial class MainViewModel
         _docNext = doc?.Section(ProjectDocSections.Next) ?? "";
         _docNotes = doc?.Section(ProjectDocSections.Notes) ?? "";
         Raise(nameof(SelectedProjectName));
+        Raise(nameof(SelectedProjectStatus));
         foreach (var name in new[] { nameof(DocStatusValue), nameof(DocSummary), nameof(DocWorks), nameof(DocBroken), nameof(DocNext), nameof(DocNotes),
                                      nameof(CanSyncSelectedDocFacts), nameof(SelectedLinkNote),
                                      nameof(SelectedSuggestionName), nameof(HasSelectedSuggestion) })

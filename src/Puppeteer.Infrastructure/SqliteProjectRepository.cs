@@ -24,14 +24,14 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
             CREATE TABLE IF NOT EXISTS RootFolder(Id TEXT PRIMARY KEY, Path TEXT NOT NULL UNIQUE, CreatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS Project(Id TEXT PRIMARY KEY, Name TEXT NOT NULL, Path TEXT NOT NULL UNIQUE, RootId TEXT NOT NULL,
                 PrimaryTechnology TEXT NOT NULL, TechnologiesJson TEXT NOT NULL, HierarchyJson TEXT NOT NULL, PresetsJson TEXT NOT NULL,
-                LastOpenedAt TEXT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, CustomIconPath TEXT NULL, IconFill INTEGER NOT NULL DEFAULT 0);
+                LastOpenedAt TEXT NULL, CreatedAt TEXT NOT NULL, UpdatedAt TEXT NOT NULL, CustomIconPath TEXT NULL, IconFill INTEGER NOT NULL DEFAULT 0, Status TEXT NULL);
             CREATE TABLE IF NOT EXISTS DetectedTechnology(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS ProjectTag(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS ProjectIcon(ProjectId TEXT PRIMARY KEY, Path TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS TerminalPreset(ProjectId TEXT NOT NULL, Name TEXT NOT NULL, Command TEXT NOT NULL, PRIMARY KEY(ProjectId, Name));
             CREATE TABLE IF NOT EXISTS AppSetting(Key TEXT PRIMARY KEY, Value TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectPreference(ProjectId TEXT PRIMARY KEY, Path TEXT NOT NULL,
-                CustomName TEXT NULL, IconPath TEXT NULL, IconFill INTEGER NULL, Category TEXT NULL, IconShape TEXT NULL, UpdatedAt TEXT NOT NULL);
+                CustomName TEXT NULL, IconPath TEXT NULL, IconFill INTEGER NULL, Category TEXT NULL, IconShape TEXT NULL, Status TEXT NULL, UpdatedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectDocLink(ProjectId TEXT PRIMARY KEY, DocPath TEXT NOT NULL, Manual INTEGER NOT NULL DEFAULT 0, LinkedAt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS ProjectSnapshot(Id INTEGER PRIMARY KEY AUTOINCREMENT, ProjectId TEXT NOT NULL, CapturedAt TEXT NOT NULL,
                 Branch TEXT NULL, Head TEXT NULL, ModifiedFileCount INTEGER NOT NULL, Ahead INTEGER NOT NULL, Behind INTEGER NOT NULL,
@@ -44,6 +44,20 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         {
             var migrate = connection.CreateCommand();
             migrate.CommandText = "ALTER TABLE Project ADD COLUMN Category TEXT NULL";
+            await migrate.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException) { /* column already exists */ }
+        try
+        {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = "ALTER TABLE Project ADD COLUMN Status TEXT NULL";
+            await migrate.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqliteException) { /* column already exists */ }
+        try
+        {
+            var migrate = connection.CreateCommand();
+            migrate.CommandText = "ALTER TABLE ProjectPreference ADD COLUMN Status TEXT NULL";
             await migrate.ExecuteNonQueryAsync(cancellationToken);
         }
         catch (SqliteException) { /* column already exists */ }
@@ -105,7 +119,7 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         command.CommandText = """
             SELECT p.Id, COALESCE(f.CustomName, p.Name), p.Path, p.RootId, p.PrimaryTechnology, p.TechnologiesJson, p.HierarchyJson, p.PresetsJson,
                    p.LastOpenedAt, p.CreatedAt, p.UpdatedAt, COALESCE(f.IconPath, p.CustomIconPath), COALESCE(f.Category, p.Category),
-                   COALESCE(f.IconFill, p.IconFill), f.CustomName, COALESCE(f.IconShape, 'Rounded')
+                   COALESCE(f.IconFill, p.IconFill), f.CustomName, COALESCE(f.IconShape, 'Rounded'), COALESCE(f.Status, p.Status)
             FROM Project p LEFT JOIN ProjectPreference f ON f.ProjectId = p.Id
             ORDER BY COALESCE(f.CustomName, p.Name)
             """;
@@ -116,7 +130,8 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
                 JsonSerializer.Deserialize<CommandPreset[]>(reader.GetString(7)) ?? [], reader.IsDBNull(8) ? null : DateTimeOffset.Parse(reader.GetString(8)),
                 DateTimeOffset.Parse(reader.GetString(9)), DateTimeOffset.Parse(reader.GetString(10)), reader.IsDBNull(11) ? null : reader.GetString(11),
                 Category: reader.IsDBNull(12) ? null : reader.GetString(12), IconFill: reader.GetInt64(13) != 0,
-                CustomName: reader.IsDBNull(14) ? null : reader.GetString(14), IconShape: reader.IsDBNull(15) ? "Rounded" : reader.GetString(15)));
+                CustomName: reader.IsDBNull(14) ? null : reader.GetString(14), IconShape: reader.IsDBNull(15) ? "Rounded" : reader.GetString(15),
+                Status: reader.IsDBNull(16) ? null : reader.GetString(16)));
         return result;
     }
 
@@ -129,16 +144,16 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         {
             var command = connection.CreateCommand(); command.Transaction = (SqliteTransaction)transaction;
             command.CommandText = """
-                INSERT INTO Project(Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category,IconFill)
-                VALUES($id,$name,$path,$root,$primary,$tech,$hierarchy,$presets,$opened,$created,$updated,$icon,$category,$iconFill)
-                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(Project.Category,excluded.Category),IconFill=Project.IconFill;
+                INSERT INTO Project(Id,Name,Path,RootId,PrimaryTechnology,TechnologiesJson,HierarchyJson,PresetsJson,LastOpenedAt,CreatedAt,UpdatedAt,CustomIconPath,Category,IconFill,Status)
+                VALUES($id,$name,$path,$root,$primary,$tech,$hierarchy,$presets,$opened,$created,$updated,$icon,$category,$iconFill,$status)
+                ON CONFLICT(Id) DO UPDATE SET Name=$name,Path=$path,PrimaryTechnology=$primary,TechnologiesJson=$tech,HierarchyJson=$hierarchy,PresetsJson=$presets,UpdatedAt=$updated,Category=COALESCE(Project.Category,excluded.Category),IconFill=Project.IconFill,Status=COALESCE(Project.Status,excluded.Status);
                 """;
             command.Parameters.AddWithValue("$id", project.Id.ToString()); command.Parameters.AddWithValue("$name", project.Name); command.Parameters.AddWithValue("$path", project.Path);
             command.Parameters.AddWithValue("$root", project.RootId.ToString()); command.Parameters.AddWithValue("$primary", project.PrimaryTechnology);
             command.Parameters.AddWithValue("$tech", JsonSerializer.Serialize(project.Technologies)); command.Parameters.AddWithValue("$hierarchy", JsonSerializer.Serialize(project.Hierarchy));
             command.Parameters.AddWithValue("$presets", JsonSerializer.Serialize(project.Presets)); command.Parameters.AddWithValue("$opened", (object?)project.LastOpenedAt?.ToString("O") ?? DBNull.Value);
             command.Parameters.AddWithValue("$created", (project.CreatedAt ?? DateTimeOffset.UtcNow).ToString("O")); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O"));
-            command.Parameters.AddWithValue("$icon", (object?)project.CustomIconPath ?? DBNull.Value); command.Parameters.AddWithValue("$category", (object?)project.Category ?? DBNull.Value); command.Parameters.AddWithValue("$iconFill", project.IconFill ? 1 : 0); await command.ExecuteNonQueryAsync(cancellationToken);
+            command.Parameters.AddWithValue("$icon", (object?)project.CustomIconPath ?? DBNull.Value); command.Parameters.AddWithValue("$category", (object?)project.Category ?? DBNull.Value); command.Parameters.AddWithValue("$iconFill", project.IconFill ? 1 : 0); command.Parameters.AddWithValue("$status", (object?)project.Status ?? DBNull.Value); await command.ExecuteNonQueryAsync(cancellationToken);
 
             await ExecuteAsync(connection, (SqliteTransaction)transaction, "DELETE FROM DetectedTechnology WHERE ProjectId=$id; DELETE FROM ProjectTag WHERE ProjectId=$id; DELETE FROM TerminalPreset WHERE ProjectId=$id", project.Id, cancellationToken);
             foreach (var technology in project.Technologies)
@@ -216,6 +231,16 @@ public sealed class SqliteProjectRepository : IProjectRepository, IDisposable
         command.Parameters.AddWithValue("$category", (object?)category ?? DBNull.Value); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
         await command.ExecuteNonQueryAsync(cancellationToken);
         await RememberAsync(connection, projectId, "Category", category, cancellationToken);
+    }
+
+    public async Task SetProjectStatusAsync(Guid projectId, string? status, CancellationToken cancellationToken = default)
+    {
+        using var lease = await LeaseAsync(cancellationToken);
+        var connection = lease.Connection;
+        var command = connection.CreateCommand(); command.CommandText = "UPDATE Project SET Status=$status,UpdatedAt=$updated WHERE Id=$id";
+        command.Parameters.AddWithValue("$status", (object?)status ?? DBNull.Value); command.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); command.Parameters.AddWithValue("$id", projectId.ToString());
+        await command.ExecuteNonQueryAsync(cancellationToken);
+        await RememberAsync(connection, projectId, "Status", status, cancellationToken);
     }
 
     public async Task SetProjectNameAsync(Guid projectId, string? customName, CancellationToken cancellationToken = default)
