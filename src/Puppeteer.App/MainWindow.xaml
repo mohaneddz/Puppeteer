@@ -276,12 +276,6 @@
               <controls:SidebarItem Icon="{StaticResource IconFolder}" Label="Projects"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Projects}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Projects"/>
-              <controls:SidebarItem Icon="{StaticResource IconArchive}" Label="Archived"
-                                    IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Archived}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="Archived"/>
-              <controls:SidebarItem Icon="{StaticResource IconEyeOff}" Label="Hidden"
-                                    IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Hidden}"
-                                    Command="{Binding NavigateCommand}" CommandParameter="Hidden"/>
               <controls:SidebarItem Icon="{StaticResource IconDoc}" Label="Docs"
                                     IsActive="{Binding CurrentPage, Converter={StaticResource PageActive}, ConverterParameter=Docs}"
                                     Command="{Binding NavigateCommand}" CommandParameter="Docs"/>
