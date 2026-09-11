@@ -416,6 +416,7 @@ public sealed partial class MainViewModel
         if (!IsUiActive || CurrentPage != "Docs") return;
         var terms = _docSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var entries = _allProjects
+            .Where(project => !_hiddenProjects.Contains(project.Id))
             .Select(project => new ProjectDocEntry(project,
                 _docMatches.GetValueOrDefault(project.Id)?.Doc,
                 _docMatches.GetValueOrDefault(project.Id)?.Confidence ?? DocMatchConfidence.None,

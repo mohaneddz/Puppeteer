@@ -13,13 +13,32 @@ public sealed class DocStatusBrushConverter : IValueConverter
     {
         "Active" => "SuccessBrush",
         "Paused" => "InfoBrush",
-        "Shipped" => "AccentBrush",
+        "Shipped" or "Idea" => "AccentBrush",
         "Abandoned" => "DangerBrush",
         "Archived" or "Unlabelled" => "MutedTextBrush",
         _ => "FaintBrush",
     });
 
     private static Brush Brush(string key) => Application.Current?.TryFindResource(key) as Brush ?? Brushes.Gray;
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
+}
+
+/// <summary>A shape per doc lifecycle state, so the list reads at a glance instead of relying on a
+/// colour key. Archived and Abandoned reuse the same glyphs the project-lifecycle status filter uses
+/// for the same ideas ("boxed away", "crossed out") — this is the doc equivalent, not the same field.</summary>
+public sealed class DocStatusIconConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => Application.Current.Resources[(value as string) switch
+    {
+        "Active" => "IconActivity",
+        "Paused" => "IconPause",
+        "Shipped" => "IconFlag",
+        "Idea" => "IconLightbulb",
+        "Abandoned" => "IconStatusCancelled",
+        "Archived" => "IconArchive",
+        "Unlabelled" => "IconDoc",
+        _ => "IconStatusUnset",
+    }];
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 

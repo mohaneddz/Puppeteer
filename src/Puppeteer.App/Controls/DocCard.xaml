@@ -5,9 +5,11 @@
              MouseDoubleClick="Card_DoubleClick">
   <UserControl.Resources>
     <conv:DocStatusBrushConverter x:Key="DocStatusBrush"/>
+    <conv:DocStatusIconConverter x:Key="DocStatusIcon"/>
   </UserControl.Resources>
   <Border x:Name="Card" Padding="15,13" Margin="0,0,12,12" BorderThickness="1" CornerRadius="12" Cursor="Hand"
-          MouseLeftButtonUp="Card_Click" ToolTip="Click to inspect this project">
+          MouseLeftButtonUp="Card_Click" ToolTip="Click to inspect this project"
+          Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
     <Border.Style>
       <Style TargetType="Border">
         <Setter Property="Background" Value="{StaticResource CardBrush}"/>
@@ -27,6 +29,11 @@
         </Style.Triggers>
       </Style>
     </Border.Style>
+    <Border.ContextMenu>
+      <ContextMenu>
+        <MenuItem Header="Hide / Show project" Command="{Binding PlacementTarget.Tag.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext.Project, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconEyeOff}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+      </ContextMenu>
+    </Border.ContextMenu>
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
@@ -37,7 +44,9 @@
       <!-- Name + status -->
       <StackPanel>
         <StackPanel Orientation="Horizontal">
-          <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{Binding Status, Converter={StaticResource DocStatusBrush}}"/>
+          <Path Width="12" Height="12" VerticalAlignment="Center" Stretch="Uniform" StrokeThickness="1.8"
+                Data="{Binding Status, Converter={StaticResource DocStatusIcon}}"
+                Stroke="{Binding Status, Converter={StaticResource DocStatusBrush}}" ToolTip="{Binding Status}"/>
           <TextBlock Text="{Binding Name}" Margin="9,0,0,0" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center"
                      TextTrimming="CharacterEllipsis" ToolTip="{Binding Path}"/>
         </StackPanel>

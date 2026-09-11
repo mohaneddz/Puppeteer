@@ -5,6 +5,7 @@
              xmlns:conv="clr-namespace:Puppeteer.App.Converters">
   <UserControl.Resources>
     <conv:DocStatusBrushConverter x:Key="DocStatusBrush"/>
+    <conv:DocStatusIconConverter x:Key="DocStatusIcon"/>
     <!-- The window's BareList lives in Window.Resources, which a separately parsed UserControl
          cannot reach with StaticResource; the list needs its own. -->
     <Style x:Key="PlainList" TargetType="ListBox">
@@ -139,7 +140,8 @@
               <Setter.Value>
                 <DataTemplate>
                   <Border Padding="16,14" Margin="0,0,0,9" BorderThickness="1" CornerRadius="12" Cursor="Hand"
-                          ToolTip="Click to inspect this project" MouseLeftButtonUp="Row_Click">
+                          ToolTip="Click to inspect this project" MouseLeftButtonUp="Row_Click"
+                          Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}">
                     <Border.Style>
                       <Style TargetType="Border">
                         <Setter Property="Background" Value="{StaticResource CardBrush}"/>
@@ -156,14 +158,20 @@
                         </Style.Triggers>
                       </Style>
                     </Border.Style>
+                    <Border.ContextMenu>
+                      <ContextMenu>
+                        <MenuItem Header="Hide / Show project" Command="{Binding PlacementTarget.Tag.ToggleHiddenCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}" CommandParameter="{Binding PlacementTarget.DataContext.Project, RelativeSource={RelativeSource AncestorType=ContextMenu}}"><MenuItem.Icon><Path Style="{StaticResource IconPath}" Data="{StaticResource IconEyeOff}" Width="14" Height="14"/></MenuItem.Icon></MenuItem>
+                      </ContextMenu>
+                    </Border.ContextMenu>
                     <Grid>
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto" MaxWidth="290"/>
                       </Grid.ColumnDefinitions>
-                      <Ellipse Width="9" Height="9" VerticalAlignment="Top" Margin="0,6,0,0"
-                               Fill="{Binding Status, Converter={StaticResource DocStatusBrush}}" ToolTip="{Binding Status}"/>
+                      <Path Width="14" Height="14" VerticalAlignment="Top" Margin="0,5,0,0" Stretch="Uniform" StrokeThickness="1.8"
+                            Data="{Binding Status, Converter={StaticResource DocStatusIcon}}"
+                            Stroke="{Binding Status, Converter={StaticResource DocStatusBrush}}" ToolTip="{Binding Status}"/>
                       <StackPanel Grid.Column="1" Margin="14,0,14,0">
                         <StackPanel Orientation="Horizontal">
                           <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14.5" VerticalAlignment="Center"/>
