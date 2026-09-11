@@ -11,7 +11,7 @@ namespace Puppeteer.Infrastructure;
 /// when the file changed since the caller last read it.</summary>
 public sealed class ProjectDocVault : IProjectDocVault
 {
-    private static readonly HashSet<string> SkippedFolders = new(StringComparer.OrdinalIgnoreCase) { ".git", ".obsidian", ".trash", "node_modules" };
+    private static readonly HashSet<string> SkippedFolders = new(StringComparer.OrdinalIgnoreCase) { ".git", ".obsidian", ".trash", ".vscode", ".idea", ".vs", "node_modules" };
     /// <summary>Index and readme files map a vault, they do not describe one project.</summary>
     private static readonly HashSet<string> SkippedFiles = new(StringComparer.OrdinalIgnoreCase) { "projects", "index", "readme" };
 
@@ -107,7 +107,7 @@ public sealed class ProjectDocVault : IProjectDocVault
         {
             return Directory.EnumerateDirectories(VaultPath)
                 .Select(Path.GetFileName)
-                .Where(name => name is { Length: > 0 } && !name.StartsWith('.') && !SkippedFolders.Contains(name))
+                .Where(name => name is { Length: > 0 } && !SkippedFolders.Contains(name))
                 .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
                 .ToArray()!;
         }
@@ -160,7 +160,7 @@ public sealed class ProjectDocVault : IProjectDocVault
             foreach (var folder in folders)
             {
                 var name = Path.GetFileName(folder);
-                if (!name.StartsWith('.') && !SkippedFolders.Contains(name)) pending.Push(folder);
+                if (!SkippedFolders.Contains(name)) pending.Push(folder);
             }
         }
     }
