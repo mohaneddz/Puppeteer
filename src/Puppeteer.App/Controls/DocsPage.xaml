@@ -39,56 +39,67 @@
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
-      <!-- Header -->
-      <Grid Margin="0,0,0,16">
-        <StackPanel Orientation="Horizontal">
+      <!-- Header. A flat WrapPanel rather than a left/right split: the summary text and the button
+           row are both variable-width, so pinning buttons to a leftover Grid column let them get
+           squeezed to icon-only slivers once the summary text grew. Wrapping whole buttons onto a
+           new line keeps every one readable at any width. -->
+      <WrapPanel Margin="0,0,0,16">
+        <StackPanel Orientation="Horizontal" Margin="0,0,14,6" VerticalAlignment="Center">
           <TextBlock Text="Docs" Style="{StaticResource PageTitle}"/>
           <TextBlock Text="{Binding DocsSummary}" VerticalAlignment="Center" Margin="14,8,0,0" Style="{StaticResource MutedText}"/>
         </StackPanel>
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-          <Button Command="{Binding OpenIndexReaderCommand}" Padding="12,8" ToolTip="Read the index that maps the whole library">
-            <StackPanel Orientation="Horizontal">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconDoc}" Width="13" Height="13"/>
-              <TextBlock Text="Index" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding LinkAllDocsCommand}" Margin="8,0,0,0" Padding="12,8"
-                  ToolTip="Attach every project to the doc Puppeteer found for it, near-misses included">
-            <StackPanel Orientation="Horizontal">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlusCircle}" Width="13" Height="13"/>
-              <TextBlock Text="Link all" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding ReloadDocsCommand}" Margin="8,0,0,0" Padding="12,8" ToolTip="Re-read every doc from disk">
-            <StackPanel Orientation="Horizontal">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
-              <TextBlock Text="Reload" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding SyncAllDocFactsCommand}" Margin="8,0,0,0" Padding="12,8"
-                  ToolTip="Rewrite every linked doc's Location, Stack and Last activity from the repo. Prose is left alone.">
-            <StackPanel Orientation="Horizontal">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="13" Height="13"/>
-              <TextBlock Text="Sync facts" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-          <Button Command="{Binding OpenDocsFolderCommand}" Margin="8,0,0,0" Padding="12,8" ToolTip="Open the docs folder in Explorer">
-            <StackPanel Orientation="Horizontal">
-              <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolderOpen}" Width="13" Height="13"/>
-              <TextBlock Text="Open folder" Margin="8,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
-          </Button>
-        </StackPanel>
-      </Grid>
+        <Button Command="{Binding OpenIndexReaderCommand}" Margin="0,0,8,6" Padding="12,8" ToolTip="Read the index that maps the whole library">
+          <StackPanel Orientation="Horizontal">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconDoc}" Width="13" Height="13"/>
+            <TextBlock Text="Index" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding LinkAllDocsCommand}" Margin="0,0,8,6" Padding="12,8"
+                ToolTip="Attach every project to the doc Puppeteer found for it, near-misses included">
+          <StackPanel Orientation="Horizontal">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconPlusCircle}" Width="13" Height="13"/>
+            <TextBlock Text="Link all" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding ReloadDocsCommand}" Margin="0,0,8,6" Padding="12,8" ToolTip="Re-read every doc from disk">
+          <StackPanel Orientation="Horizontal">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconRefresh}" Width="13" Height="13"/>
+            <TextBlock Text="Reload" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding SyncAllDocFactsCommand}" Margin="0,0,8,6" Padding="12,8"
+                ToolTip="Rewrite every linked doc's Location, Stack and Last activity from the repo. Prose is left alone.">
+          <StackPanel Orientation="Horizontal">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconBranch}" Width="13" Height="13"/>
+            <TextBlock Text="Sync facts" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+        <Button Command="{Binding OpenDocsFolderCommand}" Margin="0,0,0,6" Padding="12,8" ToolTip="Open the docs folder in Explorer">
+          <StackPanel Orientation="Horizontal">
+            <Path Style="{StaticResource IconPath}" Data="{StaticResource IconFolderOpen}" Width="13" Height="13"/>
+            <TextBlock Text="Open folder" Margin="8,0,0,0" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Button>
+      </WrapPanel>
 
       <!-- Filters -->
       <Grid Grid.Row="1" Margin="0,0,0,14" Visibility="{Binding HasVault, Converter={StaticResource BoolVis}}">
-        <StackPanel Orientation="Horizontal">
-          <ComboBox Width="160" ItemsSource="{Binding DocFilters}" SelectedItem="{Binding DocFilter}" ToolTip="Filter by state"/>
-          <ComboBox Width="160" Margin="9,0,0,0" ItemsSource="{Binding DocSections}" SelectedItem="{Binding DocSection}"
-                    ToolTip="Filter by the index's own sections" Visibility="{Binding HasIndex, Converter={StaticResource BoolVis}}"/>
-        </StackPanel>
-        <Border HorizontalAlignment="Right" VerticalAlignment="Center" Background="{StaticResource ChipBrush}"
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <WrapPanel Grid.Column="0">
+          <StackPanel Margin="0,0,9,10">
+            <TextBlock Text="Status" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
+            <ComboBox Width="160" ItemsSource="{Binding DocFilters}" SelectedItem="{Binding DocFilter}" ToolTip="Filter by state"/>
+          </StackPanel>
+          <StackPanel Margin="0,0,9,10" Visibility="{Binding HasIndex, Converter={StaticResource BoolVis}}">
+            <TextBlock Text="Section" Style="{StaticResource MutedText}" FontSize="11" Margin="2,0,0,4"/>
+            <ComboBox Width="160" ItemsSource="{Binding DocSections}" SelectedItem="{Binding DocSection}"
+                      ToolTip="Filter by the index's own sections"/>
+          </StackPanel>
+        </WrapPanel>
+        <Border Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="14,0,0,10" Background="{StaticResource ChipBrush}"
                 BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1" CornerRadius="8" Padding="3">
           <StackPanel Orientation="Horizontal">
             <Button Command="{Binding SetDocViewCommand}" CommandParameter="Grid" Style="{StaticResource ViewToggleButton}" ToolTip="Grid view" Margin="0,0,2,0">
