@@ -80,5 +80,14 @@
         <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding DocsAutoSnapshot}"/>
       </Grid>
     </Border>
+    <Border Style="{StaticResource SettingRow}">
+      <Grid>
+        <StackPanel Margin="0,0,20,0">
+          <TextBlock Text="Generate doc text with Claude Code" Style="{StaticResource SettingLabel}"/>
+          <TextBlock Text="Fills out Create doc and the per-field Generate button by shelling out to a local, already-signed-in Claude Code CLI (Haiku) instead of Groq. Needs Claude Code installed on this machine — no API key required." Style="{StaticResource SettingHint}"/>
+        </StackPanel>
+        <CheckBox HorizontalAlignment="Right" VerticalAlignment="Center" IsChecked="{Binding UseClaudeCodeForDocs}"/>
+      </Grid>
+    </Border>
   </StackPanel>
 </UserControl>

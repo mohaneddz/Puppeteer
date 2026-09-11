@@ -64,6 +64,18 @@ public sealed partial class MainViewModel
         set { if (Set(ref _docsAutoSnapshot, value)) SavePref("DocsAutoSnapshot", value ? "1" : "0"); }
     }
 
+    private bool _useClaudeCodeForDocs;
+    public bool UseClaudeCodeForDocs
+    {
+        get => _useClaudeCodeForDocs;
+        set { if (Set(ref _useClaudeCodeForDocs, value)) SavePref("UseClaudeCodeForDocs", value ? "1" : "0"); }
+    }
+
+    /// <summary>Whichever doc-field generator the Settings toggle currently selects — Claude Code
+    /// (a local, already-authenticated CLI) or Groq (needs an API key). Both implement the same
+    /// interface, so callers don't need to know which one they got.</summary>
+    private IDocFieldGenerator ActiveFieldGenerator => _useClaudeCodeForDocs ? _claudeFieldGenerator : _groqFieldGenerator;
+
     private string _docFilter = "All";
     public string DocFilter { get => _docFilter; set { if (Set(ref _docFilter, value)) RebuildDocEntries(); } }
 
@@ -649,6 +661,19 @@ public sealed partial class MainViewModel
         var path = _vault.PathFor(MatchExistingCategoryFolder(category), project.Name);
         if (File.Exists(path)) { Status = $"A doc already exists at {path}."; return; }
         var doc = ProjectDocFormat.Create(path, project.Name, FactualFields(project, null));
+
+        var apiKey = string.IsNullOrWhiteSpace(_groqApiKey) ? _config.GroqApiKeyFromEnv ?? "" : _groqApiKey;
+        if (_useClaudeCodeForDocs || !string.IsNullOrWhiteSpace(apiKey))
+        {
+            var engine = _useClaudeCodeForDocs ? "Claude Code" : "Groq";
+            Status = $"Asking {engine} to fill out {project.Name}'s doc…";
+            var generator = ActiveFieldGenerator;
+            var generated = await Task.WhenAll(ProjectDocSections.Standard.Select(async section =>
+                (section, text: await generator.GenerateAsync(section, project.Name, project.Path, apiKey))));
+            foreach (var (section, text) in generated)
+                if (!string.IsNullOrWhiteSpace(text)) doc = ProjectDocFormat.WithSection(doc, section, text!);
+        }
+
         await WriteDocAsync(doc, $"Created {Path.GetFileName(path)}");
         await LinkAsync(project.Id, path, manual: false);
     }
@@ -849,6 +874,8 @@ public sealed partial class MainViewModel
         Raise(nameof(DocView));
         _docsAutoSnapshot = await _repository.GetSettingAsync("DocsAutoSnapshot") != "0";
         Raise(nameof(DocsAutoSnapshot));
+        _useClaudeCodeForDocs = await _repository.GetSettingAsync("UseClaudeCodeForDocs") == "1";
+        Raise(nameof(UseClaudeCodeForDocs));
         _folderPane = await _repository.GetSettingAsync("FolderPane") == DocsPane ? DocsPane : ProjectsPane;
         Raise(nameof(FolderPane)); Raise(nameof(IsProjectsPane)); Raise(nameof(IsDocsPane));
         OpenVault();

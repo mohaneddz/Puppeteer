@@ -53,13 +53,13 @@ public sealed partial class MainViewModel
     private async Task GenerateFieldAsync(string section)
     {
         if (section.Length == 0 || SelectedProject is not { } project) return;
-        var apiKey = string.IsNullOrWhiteSpace(_groqApiKey) ? _config.GroqApiKeyFromEnv : _groqApiKey;
-        if (string.IsNullOrWhiteSpace(apiKey)) { Status = "Add a Groq API key in Settings to generate doc text."; return; }
+        var apiKey = string.IsNullOrWhiteSpace(_groqApiKey) ? _config.GroqApiKeyFromEnv ?? "" : _groqApiKey;
+        if (!_useClaudeCodeForDocs && string.IsNullOrWhiteSpace(apiKey)) { Status = "Add a Groq API key in Settings to generate doc text."; return; }
 
         FieldGenerating = true;
         try
         {
-            var text = await _fieldGenerator.GenerateAsync(section, project.Name, project.Path, apiKey);
+            var text = await ActiveFieldGenerator.GenerateAsync(section, project.Name, project.Path, apiKey);
             if (string.IsNullOrWhiteSpace(text)) { Status = $"Couldn't generate {section}."; return; }
             SetDocField(section, text);
             if (_fieldEditorSection == section) Raise(nameof(FieldEditorText));
